@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="create_run_jar" name="Create Runnable Jar for Project genome.distance">
+    <!--this file was created by Eclipse Runnable JAR Export Wizard-->
+    <!--ANT 1.7 is required                                        -->
+    <!--define folder properties-->
+	<property environment="env" />
+    <property name="dir.buildfile" value="."/>
+    <property name="dir.workspace" value="${dir.buildfile}/../.."/>
+    <property name="dir.jarfile" value="${dir.workspace}/git/kernel/jars"/>
+    <target name="create_run_jar">
+        <jar destfile="${dir.jarfile}/genome.distance.jar" filesetmanifest="mergewithoutmain">
+            <manifest>
+                <attribute name="Main-Class" value="org.theseed.genome.distance.App"/>
+                <attribute name="Class-Path" value="."/>
+            </manifest>
+            <fileset dir="${dir.buildfile}/target/classes"/>
+            <fileset dir="${dir.workspace}/git/shared/target/classes"/>
+            <!--fileset dir="${dir.workspace}/git/shared/target/test-classes"/-->
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/org/apache/commons/commons-lang3/3.9/commons-lang3-3.9.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/com/github/eprst/murmur3/0.3/murmur3-0.3.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/junit/junit/3.8.1/junit-3.8.1.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/com/github/cliftonlabs/json-simple/3.1.0/json-simple-3.1.0.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/org/hamcrest/hamcrest-core/2.1/hamcrest-core-2.1.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/org/hamcrest/hamcrest/2.1/hamcrest-2.1.jar"/>
+            <fileset dir="${dir.workspace}/git/kmers.reps/target/classes"/>
+            <!-- fileset dir="${dir.workspace}/git/kmers.reps/target/test-classes"/-->
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/args4j/args4j/2.33/args4j-2.33.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/commons-codec/commons-codec/1.12/commons-codec-1.12.jar"/>
+        </jar>
+    </target>
+</project>
