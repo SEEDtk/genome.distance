@@ -1,5 +1,8 @@
 package org.theseed.genome.distance;
 
+import java.util.Arrays;
+
+import org.theseed.utils.ICommand;
 
 /**
  * Hello world!
@@ -9,10 +12,25 @@ public class App
 {
     public static void main( String[] args )
     {
-        DistanceProcessor runObject = new DistanceProcessor();
-        boolean ok = runObject.parseCommand(args);
+        // Get the control parameter.
+        String command = args[0];
+        String[] newArgs = Arrays.copyOfRange(args, 1, args.length);
+        ICommand processor;
+        // Parse the parameters.
+        switch (command) {
+        case "compare" :
+            processor = new DistanceProcessor();
+            break;
+        case "scan" :
+            processor = new RoleScanningProcessor();
+            break;
+        default :
+            throw new IllegalArgumentException("Invalid command " + command);
+        }
+
+        boolean ok = processor.parseCommand(newArgs);
         if (ok) {
-            runObject.run();
+            processor.run();
         }
     }
 }
