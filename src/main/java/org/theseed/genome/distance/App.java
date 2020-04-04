@@ -24,6 +24,9 @@ public class App
         case "scan" :
             processor = new RoleScanningProcessor();
             break;
+        case "genomes" :
+            processor = new GenomeProcessor();
+            break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
         }
