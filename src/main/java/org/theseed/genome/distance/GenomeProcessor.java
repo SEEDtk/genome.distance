@@ -5,7 +5,6 @@ package org.theseed.genome.distance;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +29,8 @@ import org.theseed.utils.BaseProcessor;
  * -v	show more detail on the log
  * -h	display usage information
  * -K	kmer size to use
+ * -m	maximum distance; if a comparison results in a distance greater than this value, it will not be output;
+ * 		the default is 1.0, which outputs everything
  *
  * @author Bruce Parrello
  *
@@ -47,6 +48,11 @@ public class GenomeProcessor extends BaseProcessor {
     @Option(name="-K", aliases = { "--kmerSize", "--kmer" }, metaVar = "12", usage = "DNA kmer size")
     private int kmerSize;
 
+    /** maximum distance to allow */
+    @Option(name = "-m", aliases = { "--max", "--maxDist", "--distance" }, metaVar = "0.75",
+            usage = "maximum acceptable distance for a neighboring genome")
+    private double maxDist;
+
     /** name of the base genome directory */
     @Argument(index=0, metaVar="gtoDir", required=true, usage="base genome GTO directory")
     private File baseDir;
@@ -58,6 +64,7 @@ public class GenomeProcessor extends BaseProcessor {
     @Override
     protected void setDefaults() {
         this.kmerSize = 21;
+        this.maxDist = 0.9;
     }
 
     @Override
@@ -82,24 +89,22 @@ public class GenomeProcessor extends BaseProcessor {
         try {
             // Write the output header.
             System.out.println("base_id\tbase_name\tgenome_id\tgenome_name\tdistance");
-            // Get the base genome directory.
-            GenomeDirectory baseGenomes = new GenomeDirectory(this.baseDir);
             // Create the kmer objects for the base genomes.
-            List<GenomeKmers> baseList = scanDirectoryForKmers(baseGenomes);
+            List<GenomeKmers> baseList = scanDirectoryForKmers(this.baseDir);
             // Now loop through the comparison genome directories, computing all the distances.
             for (File compareDir : this.genomeDirs) {
+                log.info("Processing directory {}.", compareDir);
                 GenomeDirectory compareGenomes = new GenomeDirectory(compareDir);
-                List<GenomeKmers> compareList = this.scanDirectoryForKmers(compareGenomes);
-                for (GenomeKmers baseKmers : baseList) {
-                    log.info("Processing base genome {} ({}).", baseKmers.getGenomeId(),
-                            baseKmers.getGenomeName());
-                    for (GenomeKmers compareKmers : compareList) {
-                        log.info("Processing compare genome {} ({}).", compareKmers.getGenomeId(),
-                                compareKmers.getGenomeName());
+                for (Genome compare : compareGenomes) {
+                    log.info("Processing compare genome {}.", compare);
+                    GenomeKmers compareKmers = new GenomeKmers(compare);
+                    for (GenomeKmers baseKmers : baseList) {
+                        log.info("Comparing to base genome {} ({}).", baseKmers.getGenomeId(), baseKmers.getGenomeName());
                         double dist = baseKmers.distance(compareKmers);
-                        System.out.format("%s\t%s\t%s\t%s\t%8.4f%n", baseKmers.getGenomeId(),
-                                baseKmers.getGenomeName(), compareKmers.getGenomeId(),
-                                compareKmers.getGenomeName(), dist);
+                        if (dist <= this.maxDist)
+                            System.out.format("%s\t%s\t%s\t%s\t%8.4f%n", baseKmers.getGenomeId(),
+                                    baseKmers.getGenomeName(), compareKmers.getGenomeId(),
+                                    compareKmers.getGenomeName(), dist);
                     }
                 }
             }
@@ -112,17 +117,18 @@ public class GenomeProcessor extends BaseProcessor {
     /**
      * Read all the genomes from a directory and create a list of kmer objects.
      *
-     * @param genomes	directory of genomes to scan
+     * @param dirName	directory of genomes to scan
      *
      * @return a list of kmer objects for the genomes
      *
      * @throws NoSuchAlgorithmException
-     * @throws UnsupportedEncodingException
+     * @throws IOException
      */
-    private List<GenomeKmers> scanDirectoryForKmers(GenomeDirectory genomes)
-            throws NoSuchAlgorithmException, UnsupportedEncodingException {
+    private List<GenomeKmers> scanDirectoryForKmers(File dirName)
+            throws NoSuchAlgorithmException, IOException {
+        GenomeDirectory genomes = new GenomeDirectory(dirName);
         List<GenomeKmers> baseGlist = new ArrayList<GenomeKmers>(genomes.size());
-        log.info("Processing genome directory {}.", this.baseDir);
+        log.info("Processing genome directory {}.", dirName);
         for (Genome genome : genomes) {
             log.info("Scanning genome {}.", genome);
             GenomeKmers kmers = new GenomeKmers(genome);

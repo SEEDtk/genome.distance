@@ -29,8 +29,6 @@
             <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/ch/qos/logback/logback-core/1.2.3/logback-core-1.2.3.jar"/>
             <fileset dir="${dir.workspace}/git/sequence/target/classes"/>
             <fileset dir="${dir.workspace}/git/sequence/target/test-classes"/>
-            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/info/debatty/java-lsh/0.10/java-lsh-0.10.jar"/>
-            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/info/debatty/java-string-similarity/0.12/java-string-similarity-0.12.jar"/>
         </jar>
     </target>
 </project>

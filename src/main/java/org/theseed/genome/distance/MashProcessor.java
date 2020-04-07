@@ -33,17 +33,15 @@ import org.theseed.utils.BaseProcessor;
  * The command-line options are as follows.
  *
  * -h	display command usage
+ * -K	kmer size to use
  * -v	display more detailed progress messages
- * -w	width of the sketch database; the default is 1000
+ * -w	width of the sketch database; the default is 2000
  * -s	the number of stages for the locally-sensitive hashing (a higher number is slower but more accurate); the default
  * 		is 15
  * -b	the number of buckets for the locally-sensitive hashing (a lower number is slower but more accurage); the default
  * 		is 100
  * -n	the number of neighbors desired for each query genome; the default is 10
- * -m	maximum acceptable distance for a neighbor genome
- *
- * --seed	the random number seed for computing the sketch hash functions; the default is to use a random seed based on
- * 			the clock
+ * -m	maximum acceptable distance for a neighbor genome; the default is 0.9
  *
  * @author Bruce Parrello
  *
@@ -58,6 +56,10 @@ public class MashProcessor extends BaseProcessor {
     private Map<String, String> genomeNames;
 
     // COMMAND-LINE OPTIONS
+
+    /** kmer size */
+    @Option(name="-K", aliases = { "--kmerSize", "--kmer" }, metaVar = "12", usage = "DNA kmer size")
+    private int kmerSize;
 
     /** width of a genome sketch */
     @Option(name = "-w", aliases = { "--width", "--sketch" }, metaVar = "200", usage = "number of values per genome sketch")
@@ -80,10 +82,6 @@ public class MashProcessor extends BaseProcessor {
             usage = "maximum acceptable distance for a neighboring genome")
     private double maxDist;
 
-    /** random number seed */
-    @Option(name = "--seed", metaVar = "31", usage = "random number seed (for repeatability)")
-    private long seed;
-
     /** directory of query genomes */
     @Argument(index = 0, metaVar = "queryDir", usage = "directory of query genomes", required = true)
     private File queryDir;
@@ -95,12 +93,12 @@ public class MashProcessor extends BaseProcessor {
 
     @Override
     protected void setDefaults() {
-        this.width = 1000;
+        this.width = 2000;
         this.stages = 15;
         this.buckets = 100;
         this.neighbors = 10;
         this.maxDist = 0.9;
-        this.seed = LSHSeqHash.randomSeed();
+        this.kmerSize = 21;
     }
 
     @Override
@@ -110,7 +108,9 @@ public class MashProcessor extends BaseProcessor {
         if (! this.subjectDir.isDirectory())
             throw new FileNotFoundException("Subject directory " + this.subjectDir + " not found or invalid.");
         // Create the hash table.
-        this.subjectHash = new LSHSeqHash(this.width, this.stages, this.buckets, this.seed);
+        this.subjectHash = new LSHSeqHash(this.width, this.stages, this.buckets);
+        // Set the kmer size.
+        GenomeKmers.setKmerSize(this.kmerSize);
         return true;
     }
 
