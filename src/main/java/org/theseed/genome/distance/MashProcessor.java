@@ -14,6 +14,7 @@ import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
 import org.theseed.genome.Genome;
 import org.theseed.genome.GenomeDirectory;
+import org.theseed.sequence.Bucket;
 import org.theseed.sequence.GenomeKmers;
 import org.theseed.sequence.LSHSeqHash;
 import org.theseed.utils.BaseProcessor;
@@ -143,12 +144,12 @@ public class MashProcessor extends BaseProcessor {
             for (Genome query : gDir) {
                 log.info("Searching for neighbors of {}.", query);
                 GenomeKmers kmers = new GenomeKmers(query);
-                SortedSet<LSHSeqHash.Result> results = this.subjectHash.getClosest(kmers, this.neighbors, this.maxDist);
+                SortedSet<Bucket.Result> results = this.subjectHash.getClosest(kmers, this.neighbors, this.maxDist);
                 if (results.size() == 0) {
                     log.warn("No neighbors with distance <= {} found for genome {}.", this.maxDist, query);
                     noneFound++;
                 } else {
-                    for (LSHSeqHash.Result result : results) {
+                    for (Bucket.Result result : results) {
                         // Write out this result.
                         String subjectId = result.getTarget();
                         String subjectName = this.genomeNames.get(subjectId);

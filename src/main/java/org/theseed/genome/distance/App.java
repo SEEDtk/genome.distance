@@ -27,8 +27,11 @@ public class App
         case "genomes" :
             processor = new GenomeProcessor();
             break;
-        case "sketches" :
+        case "mash" :
             processor = new MashProcessor();
+            break;
+        case "width" :
+            processor = new WidthProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
