@@ -12,6 +12,8 @@ import java.util.List;
 
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.sequence.ProteinKmers;
 import org.theseed.sequence.SequenceKmers;
@@ -39,6 +41,8 @@ import org.theseed.utils.SizeList;
  * -i	input file containing protein families (default STDIN)
  * -c	index (1-based) or name of the input column containing group IDs
  * -p	index (1-based) or name of the input column containing protein sequences
+ * -M	maximum size of a group
+ * -e	target mean error level
  *
  * @author Bruce Parrello
  *
@@ -46,6 +50,10 @@ import org.theseed.utils.SizeList;
 public class WidthProcessor extends BaseProcessor {
 
     // FIELDS
+    /** logging facility */
+    protected static Logger log = LoggerFactory.getLogger(WidthProcessor.class);
+    /** infinity for target size */
+    private static final int INVALID_TARGET_SIZE = Integer.MAX_VALUE;
     /** input stream */
     private TabbedLineReader inStream;
     /** group ID column */
@@ -53,7 +61,9 @@ public class WidthProcessor extends BaseProcessor {
     /** protein sequence column */
     private int protIdx;
     /** array of sketch sizes to test */
-    int[] sizes;
+    private int[] sizes;
+    /** best sketch size for target error */
+    private int targetSize;
 
     // COMMAND-LINE OPTIONS
 
@@ -77,6 +87,14 @@ public class WidthProcessor extends BaseProcessor {
     @Option(name = "-p", aliases = { "--prot", "--protCol" }, metaVar = "0", usage = "protein sequence column index (1-based) or name")
     private String protColumn;
 
+    /** maximum group size */
+    @Option(name = "-M", aliases = { "--limit", "--maxGroup" }, metaVar = "500", usage = "maximum permissible group size")
+    private int maxGroup;
+
+    /** target level for mean error */
+    @Option(name = "-e", aliases = { "--error", "--target" }, metaVar = "0.001", usage = "target value for mean error")
+    private double targetError;
+
     /** minimum sketch size to test */
     @Argument(index = 0, metaVar = "50", usage = "starting (minimum) sketch size", required = true)
     private int minSize;
@@ -92,6 +110,8 @@ public class WidthProcessor extends BaseProcessor {
         this.inFile = null;
         this.idColumn = "1";
         this.protColumn = "aa_sequence";
+        this.maxGroup = 1000;
+        this.targetError = 0.001;
     }
 
     @Override
@@ -114,6 +134,12 @@ public class WidthProcessor extends BaseProcessor {
             throw new IllegalArgumentException("Minimum sketch size cannot be larger than maximum.");
         if (this.stepSize <= 0)
             throw new IllegalArgumentException("Step size must be greater than 0.");
+        // Validate the maximum group size.
+        if (this.maxGroup < 10)
+            throw new IllegalArgumentException("Maximum group size must be 10 or greater.");
+        // Validate the target error level.
+        if (this.targetError > 0.1 || this.targetError <= 0.0)
+            throw new IllegalArgumentException("Target error must be > 0 and < 0.1.");
         // Create the size list.
         this.sizes = SizeList.getSizes(this.minSize, this.maxSize, this.stepSize);
         // Set the kmer size.
@@ -128,12 +154,14 @@ public class WidthProcessor extends BaseProcessor {
             String groupId = "";
             // The proteins for the current group will accumulate in here.
             List<SequenceKmers> proteins = new ArrayList<SequenceKmers>();
+            // This will hold the minimum sketch size to always hit the target.
+            this.targetSize = this.minSize;
             // Write the output headers.
             System.out.println("Group\tSize\tPairs\tDwarves\tMean E\tMax E");
             // Loop through the input.
             for (TabbedLineReader.Line line : this.inStream) {
                 String group = line.get(this.idIdx);
-                if (! group.contentEquals(groupId)) {
+                if (! group.contentEquals(groupId) || proteins.size() >= this.maxGroup) {
                     // Here we have a new group.  Process the old one if necessary.
                     if (proteins.size() > 0)
                         this.ProcessGroup(groupId, proteins);
@@ -150,7 +178,11 @@ public class WidthProcessor extends BaseProcessor {
             // file was empty.
             if (proteins.size() > 0)
                 this.ProcessGroup(groupId, proteins);
-            log.info("All done.");
+            // Output the target sketch size.
+            if (this.targetSize == WidthProcessor.INVALID_TARGET_SIZE)
+                log.warn("Target sketch size is larger than maxmimum.");
+            else
+                log.info("Target sketch size is {}.", this.targetSize);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -181,6 +213,8 @@ public class WidthProcessor extends BaseProcessor {
             log.warn("Group {} has no usable distance pairs.", groupId);
         } else {
             log.info("Group {} has {} usable distance pairs.", groupId, pairs);
+            // This will hold the minimum sketch size that meets the target error.
+            int minGoodSize = WidthProcessor.INVALID_TARGET_SIZE;
             // Create an array to hold the sketches.
             Sketch[] sketches = new Sketch[n];
             // Now we loop through the sketch sizes.
@@ -203,9 +237,19 @@ public class WidthProcessor extends BaseProcessor {
                         }
                     }
                 // Write the results.
+                double meanError = total / pairs;
                 System.out.format("%s\t%8d\t%8d\t%8d\t%8.4f\t%8.4f%n", groupId, size, pairs, dwarves,
-                        total / pairs, maxErr);
+                        meanError, maxErr);
+                // Remember it if it's good.
+                if (size < minGoodSize && meanError <= this.targetError)
+                    minGoodSize = size;
             }
+            // Merge in the minimum good size.
+            if (minGoodSize > this.targetSize) this.targetSize = minGoodSize;
+            if (minGoodSize == WidthProcessor.INVALID_TARGET_SIZE)
+                log.warn("{} has no acceptable sketch size in range.", groupId);
+            else
+                log.info("Minimum acceptable size for {} is {}.", groupId, minGoodSize);
         }
     }
 

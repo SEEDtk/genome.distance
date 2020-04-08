@@ -12,6 +12,8 @@ import java.util.SortedSet;
 
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.theseed.genome.Genome;
 import org.theseed.genome.GenomeDirectory;
 import org.theseed.sequence.Bucket;
@@ -51,6 +53,8 @@ public class MashProcessor extends BaseProcessor {
 
     // FIELDS
 
+    /** logging facility */
+    protected static Logger log = LoggerFactory.getLogger(MashProcessor.class);
     /** locally-sensitive hash for managing genome sketches */
     private LSHSeqHash subjectHash;
     /** hash of subject genome IDs to names */

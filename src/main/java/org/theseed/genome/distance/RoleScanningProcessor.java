@@ -10,6 +10,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.kohsuke.args4j.Argument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.theseed.counters.CountMap;
 import org.theseed.genome.Feature;
 import org.theseed.genome.Genome;
@@ -37,6 +39,14 @@ import org.theseed.utils.BaseProcessor;
  *
  */
 public class RoleScanningProcessor extends BaseProcessor {
+
+    // FIELDS
+
+    /** logging facility */
+    protected static Logger log = LoggerFactory.getLogger(RoleScanningProcessor.class);
+
+
+    // COMMAND-LINE OPTIONS
 
     /** input genome directory */
     @Argument(index = 0, metaVar = "genomeDir", usage = "directory of genomes to scan", required = true)
