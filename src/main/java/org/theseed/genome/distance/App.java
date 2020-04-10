@@ -33,6 +33,12 @@ public class App
         case "width" :
             processor = new WidthProcessor();
             break;
+        case "sketches" :
+            processor = new SketchProcessor();
+            break;
+        case "tune" :
+            processor = new TuningProcessor();
+            break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
         }

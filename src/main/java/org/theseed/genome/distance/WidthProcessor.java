@@ -3,8 +3,6 @@
  */
 package org.theseed.genome.distance;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,10 +13,8 @@ import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.io.TabbedLineReader;
-import org.theseed.sequence.ProteinKmers;
 import org.theseed.sequence.SequenceKmers;
 import org.theseed.sequence.Sketch;
-import org.theseed.utils.BaseProcessor;
 import org.theseed.utils.SizeList;
 
 /**
@@ -47,19 +43,13 @@ import org.theseed.utils.SizeList;
  * @author Bruce Parrello
  *
  */
-public class WidthProcessor extends BaseProcessor {
+public class WidthProcessor extends ProteinKmerReader {
 
     // FIELDS
     /** logging facility */
     protected static Logger log = LoggerFactory.getLogger(WidthProcessor.class);
     /** infinity for target size */
     private static final int INVALID_TARGET_SIZE = Integer.MAX_VALUE;
-    /** input stream */
-    private TabbedLineReader inStream;
-    /** group ID column */
-    private int idIdx;
-    /** protein sequence column */
-    private int protIdx;
     /** array of sketch sizes to test */
     private int[] sizes;
     /** best sketch size for target error */
@@ -67,25 +57,9 @@ public class WidthProcessor extends BaseProcessor {
 
     // COMMAND-LINE OPTIONS
 
-    /** kmer length */
-    @Option(name = "-K", aliases = { "--kmer", "--kmerSize" }, metaVar = "12", usage = "protein kmer size")
-    private int kmerSize;
-
     /** sketch size increment */
     @Option(name = "-s", aliases = { "--step", "--incr" }, metaVar = "5", usage = "increment for sketch size search")
     private int stepSize;
-
-    /** input file */
-    @Option(name = "-i", aliases = { "--input" }, metaVar = "families.tbl", usage = "input file (if not STDIN)")
-    private File inFile;
-
-    /** group ID column name */
-    @Option(name = "-c", aliases = { "--col", "--groupCol" }, metaVar = "pgfam_id", usage = "group ID column index (1-based) or name")
-    private String idColumn;
-
-    /** protein sequence column name */
-    @Option(name = "-p", aliases = { "--prot", "--protCol" }, metaVar = "0", usage = "protein sequence column index (1-based) or name")
-    private String protColumn;
 
     /** maximum group size */
     @Option(name = "-M", aliases = { "--limit", "--maxGroup" }, metaVar = "500", usage = "maximum permissible group size")
@@ -105,30 +79,15 @@ public class WidthProcessor extends BaseProcessor {
 
     @Override
     protected void setDefaults() {
-        this.kmerSize = 8;
         this.stepSize = 10;
-        this.inFile = null;
-        this.idColumn = "1";
-        this.protColumn = "aa_sequence";
+        this.initProteinParms();
         this.maxGroup = 1000;
         this.targetError = 0.001;
     }
 
     @Override
     protected boolean validateParms() throws IOException {
-        // Open the input file.
-        if (this.inFile == null) {
-            log.info("Proteins will be read from standard input.");
-            this.inStream = new TabbedLineReader(System.in);
-        } else if (! this.inFile.canRead()) {
-            throw new FileNotFoundException("Input file " + this.inFile + " is not found or invalid.");
-        } else {
-            log.info("Proteins will be read from {}.", this.inFile);
-            this.inStream = new TabbedLineReader(this.inFile);
-        }
-        // Find the data columns.
-        this.idIdx = this.inStream.findField(this.idColumn);
-        this.protIdx = this.inStream.findField(this.protColumn);
+        this.validateProteinParms();
         // Validate the positional parameters.
         if (this.minSize > this.maxSize)
             throw new IllegalArgumentException("Minimum sketch size cannot be larger than maximum.");
@@ -142,52 +101,46 @@ public class WidthProcessor extends BaseProcessor {
             throw new IllegalArgumentException("Target error must be > 0 and < 0.1.");
         // Create the size list.
         this.sizes = SizeList.getSizes(this.minSize, this.maxSize, this.stepSize);
-        // Set the kmer size.
-        ProteinKmers.setKmerSize(this.kmerSize);
         return true;
     }
 
-    @Override
-    public void run() {
-        try {
-            // This will hold the current group ID.
-            String groupId = "";
-            // The proteins for the current group will accumulate in here.
-            List<SequenceKmers> proteins = new ArrayList<SequenceKmers>();
-            // This will hold the minimum sketch size to always hit the target.
-            this.targetSize = this.minSize;
-            // Write the output headers.
-            System.out.println("Group\tSize\tPairs\tDwarves\tMean E\tMax E");
-            // Loop through the input.
-            for (TabbedLineReader.Line line : this.inStream) {
-                String group = line.get(this.idIdx);
-                if (! group.contentEquals(groupId) || proteins.size() >= this.maxGroup) {
-                    // Here we have a new group.  Process the old one if necessary.
-                    if (proteins.size() > 0)
-                        this.ProcessGroup(groupId, proteins);
-                    // Set up for the new one.
-                    log.info("Reading group {}.", group);
-                    groupId = group;
-                    proteins.clear();
-                }
-                // Add this protein to the list.
-                SequenceKmers prot = new ProteinKmers(line.get(protIdx));
-                proteins.add(prot);
+    /**
+     * Process the protein input.
+     */
+    protected void processProteins() {
+        // This will hold the current group ID.
+        String groupId = "";
+        // The proteins for the current group will accumulate in here.
+        List<SequenceKmers> proteins = new ArrayList<SequenceKmers>();
+        // This will hold the minimum sketch size to always hit the target.
+        this.targetSize = this.minSize;
+        // Write the output headers.
+        System.out.println("Group\tSize\tPairs\tDwarves\tMean E\tMax E");
+        // Loop through the input.
+        for (TabbedLineReader.Line line : this.input()) {
+            String group = this.getGroupId(line);
+            if (! group.contentEquals(groupId) || proteins.size() >= this.maxGroup) {
+                // Here we have a new group.  Process the old one if necessary.
+                if (proteins.size() > 0)
+                    this.ProcessGroup(groupId, proteins);
+                // Set up for the new one.
+                log.info("Reading group {}.", group);
+                groupId = group;
+                proteins.clear();
             }
-            // Process the residual group.  It will be nonempty unless the entire
-            // file was empty.
-            if (proteins.size() > 0)
-                this.ProcessGroup(groupId, proteins);
-            // Output the target sketch size.
-            if (this.targetSize == WidthProcessor.INVALID_TARGET_SIZE)
-                log.warn("Target sketch size is larger than maxmimum.");
-            else
-                log.info("Target sketch size is {}.", this.targetSize);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            this.inStream.close();
+            // Add this protein to the list.
+            SequenceKmers prot = this.getProteinKmers(line);
+            proteins.add(prot);
         }
+        // Process the residual group.  It will be nonempty unless the entire
+        // file was empty.
+        if (proteins.size() > 0)
+            this.ProcessGroup(groupId, proteins);
+        // Output the target sketch size.
+        if (this.targetSize == WidthProcessor.INVALID_TARGET_SIZE)
+            log.warn("Target sketch size is larger than maxmimum.");
+        else
+            log.info("Target sketch size is {}.", this.targetSize);
     }
 
     /**
