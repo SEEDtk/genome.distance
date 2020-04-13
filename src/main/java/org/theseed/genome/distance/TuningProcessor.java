@@ -10,7 +10,7 @@ import java.util.Set;
 
 import org.slf4j.LoggerFactory;
 import org.theseed.sequence.Bucket;
-import org.theseed.sequence.LSHSeqHash;
+import org.theseed.sequence.LSHMemSeqHash;
 import org.theseed.sequence.Sketch;
 import org.theseed.utils.BaseProcessor;
 import org.theseed.utils.SizeList;
@@ -144,7 +144,7 @@ public class TuningProcessor extends BaseProcessor {
             // sketch-to-sketch.
             for (int stageSize : this.stageSizes) {
                 log.info("Testing {} stages.", stageSize);
-                LSHSeqHash hash = new LSHSeqHash(200, stageSize, this.bucketCount);
+                LSHMemSeqHash hash = new LSHMemSeqHash(200, stageSize, this.bucketCount);
                 for (Sketch sketch : testSketches)
                     hash.add(sketch);
                 log.info("Hash loaded with {} proteins.", testSketches.size());

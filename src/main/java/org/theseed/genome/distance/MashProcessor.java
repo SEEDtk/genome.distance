@@ -18,7 +18,7 @@ import org.theseed.genome.Genome;
 import org.theseed.genome.GenomeDirectory;
 import org.theseed.sequence.Bucket;
 import org.theseed.sequence.GenomeKmers;
-import org.theseed.sequence.LSHSeqHash;
+import org.theseed.sequence.LSHMemSeqHash;
 import org.theseed.utils.BaseProcessor;
 
 /**
@@ -56,7 +56,7 @@ public class MashProcessor extends BaseProcessor {
     /** logging facility */
     protected static Logger log = LoggerFactory.getLogger(MashProcessor.class);
     /** locally-sensitive hash for managing genome sketches */
-    private LSHSeqHash subjectHash;
+    private LSHMemSeqHash subjectHash;
     /** hash of subject genome IDs to names */
     private Map<String, String> genomeNames;
 
@@ -113,7 +113,7 @@ public class MashProcessor extends BaseProcessor {
         if (! this.subjectDir.isDirectory())
             throw new FileNotFoundException("Subject directory " + this.subjectDir + " not found or invalid.");
         // Create the hash table.
-        this.subjectHash = new LSHSeqHash(this.width, this.stages, this.buckets);
+        this.subjectHash = new LSHMemSeqHash(this.width, this.stages, this.buckets);
         // Set the kmer size.
         GenomeKmers.setKmerSize(this.kmerSize);
         return true;
