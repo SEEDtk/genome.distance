@@ -19,7 +19,7 @@ import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 
 /**
- * This command tries different stage and bucket sizes for a protein LSHSeqHash and outputs a qaulity measure.
+ * This command tries different stage and bucket sizes for a protein LSHSeqHash and outputs a quality measure.
  * The quality measure is based on a target distance.  During the initial pass over the buckets, we compute the
  * number of sketches within a certain distance of each other sketch and save this in a count map.  The sketch's
  * group ID is replaced by a unique name string so we can map the sketch uniquely.  The quality is the percent
