@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.theseed.genome.Genome;
 import org.theseed.genome.GenomeDirectory;
 import org.theseed.sequence.GenomeKmers;
-import org.theseed.sequence.LSHDiskSeqHash;
+import org.theseed.sequence.hash.LSHDiskSeqHash;
 import org.theseed.utils.BaseProcessor;
 
 /**

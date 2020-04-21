@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.sequence.SequenceKmers;
-import org.theseed.sequence.Sketch;
+import org.theseed.sequence.hash.Sketch;
 import org.theseed.utils.SizeList;
 
 /**
