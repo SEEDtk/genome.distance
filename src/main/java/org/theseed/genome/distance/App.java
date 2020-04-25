@@ -16,6 +16,7 @@ import org.theseed.utils.ICommand;
  * width		determine the error rates for different protein sketch widths
  * sketches		convert proteins into signatures (sketches)
  * tune			test different stage and bucket sizes for a protein minHash
+ * match		match DNA sequences to proteins in a genome
  */
 public class App
 {
@@ -53,6 +54,9 @@ public class App
             break;
         case "tune" :
             processor = new TuningProcessor();
+            break;
+        case "match" :
+            processor = new MatchProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
