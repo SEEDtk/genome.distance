@@ -17,7 +17,7 @@ import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.genome.Genome;
-import org.theseed.locations.Location;
+import org.theseed.reports.MatchReporter;
 import org.theseed.sequence.DnaDataStream;
 import org.theseed.sequence.FastaInputStream;
 import org.theseed.sequence.Sequence;
@@ -44,6 +44,7 @@ import org.theseed.utils.BaseProcessor;
  * --maxE		maximum permissible e-value (the default is 1e-10)
  * --minPct		minimum percent coverage of PEG for a match (the default is 75)
  * --tempDir	temporary directory for BLAST databases; the default is "Temp" in the current directory
+ * --format		format for the output report (TABLE or HTML)
  *
  * @author Bruce Parrello
  *
@@ -55,6 +56,8 @@ public class MatchProcessor extends BaseProcessor {
     protected static final Logger log = LoggerFactory.getLogger(MatchProcessor.class);
     /** DNA input stream */
     private FastaInputStream inStream;
+    /** output reporter */
+    private MatchReporter reporter;
 
     // COMMAND-LINE OPTION
 
@@ -80,6 +83,10 @@ public class MatchProcessor extends BaseProcessor {
     @Option(name = "--tempDir", metaVar = "Tmp", usage = "temporary directory for BLAST databases")
     private File tempDir;
 
+    /** output report type */
+    @Option(name = "--format", usage = "output format for the report")
+    private MatchReporter.Type outputFormat;
+
     /** file containing the target genome */
     @Argument(index = 0, metaVar = "genome.gto", usage = "target genome file containing the proteins",
             required = true)
@@ -92,6 +99,7 @@ public class MatchProcessor extends BaseProcessor {
         this.eValue = 1e-10;
         this.minCoverage = 75.0;
         this.tempDir = new File(System.getProperty("user.dir"), "Temp");
+        this.outputFormat = MatchReporter.Type.HTML;
     }
 
     @Override
@@ -126,8 +134,6 @@ public class MatchProcessor extends BaseProcessor {
             ProteinBlastDB blastDB = this.createBlastDb();
             // Create the BLAST parameters.
             BlastParms parms = new BlastParms().maxE(this.eValue).pctLenOfSubject(this.minCoverage);
-            // Print the output header.
-            System.out.println("seq_id\tseq_len\tstrand\tleft\tright\tpeg_id\tpct_coverage\te_value\talign_len\tfunction");
             // Now we loop through the input FASTA stream, building batches.
             int batchCount = 0;
             int seqCount = 0;
@@ -146,6 +152,7 @@ public class MatchProcessor extends BaseProcessor {
             log.info("Processing final batch {}.", batchCount);
             this.processBatch(batch, blastDB, parms);
             log.info("All done. {} sequences in {} batches processed.", seqCount, batchCount);
+            reporter.close();
         } catch (Exception e) {
             e.printStackTrace(System.err);
         } finally {
@@ -175,17 +182,10 @@ public class MatchProcessor extends BaseProcessor {
             // Get the hits for this sequence and sort them by location.
             List<BlastHit> hits = hitMap.get(seqId);
             hits.sort(sortByLoc);
-            // Space before this DNA sequence's hits.
-            System.out.println();
+            this.reporter.startContig(seqId, hits.get(0).getQueryLen());
             // Output the hits.
-            for (BlastHit hit : hits) {
-                // Get the location in the DNA sequence of the hit.
-                Location qLoc = hit.getQueryLoc();
-                // Write the output line.
-                System.out.format("%s\t%d\t%c\t%d\t%d\t%s\t%4.2f\t%4.3e\t%d\t%s%n",
-                        seqId, hit.getQueryLen(), qLoc.getDir(), qLoc.getLeft(), qLoc.getRight(), hit.getSubjectId(),
-                        hit.getSubjectPercentMatch(), hit.getEvalue(), hit.getAlignLen(), hit.getSubjectDef());
-            }
+            for (BlastHit hit : hits)
+                this.reporter.recordHit(hit);
         }
     }
 
@@ -197,6 +197,7 @@ public class MatchProcessor extends BaseProcessor {
      */
     private ProteinBlastDB createBlastDb() throws IOException, InterruptedException {
         Genome inGenome = new Genome(this.genomeFile);
+        this.reporter = MatchReporter.create(this.outputFormat, inGenome, System.out);
         File tempFile = File.createTempFile("blast", ".faa", this.tempDir);
         ProteinBlastDB retVal = ProteinBlastDB.create(tempFile, inGenome);
         retVal.deleteOnExit();
