@@ -6,7 +6,6 @@ package org.theseed.reports;
 import java.io.Closeable;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import org.theseed.genome.Feature;
 import org.theseed.genome.Genome;
 import org.theseed.sequence.blast.BlastHit;
 
@@ -103,17 +102,15 @@ public abstract class MatchReporter implements Closeable, AutoCloseable {
      * @param hit	BLAST hit specification
      */
     public void recordHit(BlastHit hit) {
-        Feature feat = this.fidGenome.getFeature(hit.getSubjectId());
-        this.processHit(feat, hit);
+        this.processHit(hit);
     }
 
     /**
      * Process a BLAST hit.
      *
-     * @param feat	subject feature hit by the BLAST
      * @param hit	descriptor representing the BLAST hit
      */
-    protected abstract void processHit(Feature feat, BlastHit hit);
+    protected abstract void processHit(BlastHit hit);
 
     /**
      * Finish reporting of the current contig.

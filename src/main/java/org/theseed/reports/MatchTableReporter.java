@@ -5,7 +5,6 @@ package org.theseed.reports;
 
 import java.io.OutputStream;
 
-import org.theseed.genome.Feature;
 import org.theseed.genome.Genome;
 import org.theseed.locations.Location;
 import org.theseed.sequence.blast.BlastHit;
@@ -34,7 +33,7 @@ public class MatchTableReporter extends MatchReporter {
     }
 
     @Override
-    protected void processHit(Feature feat, BlastHit hit) {
+    protected void processHit(BlastHit hit) {
         // Get the location in the DNA sequence of the hit.
         Location qLoc = hit.getQueryLoc();
         // Write the output line.

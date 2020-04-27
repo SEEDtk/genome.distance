@@ -7,7 +7,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.theseed.genome.Feature;
 import org.theseed.genome.Genome;
 import org.theseed.sequence.blast.BlastHit;
 
@@ -25,7 +24,7 @@ public class MatchHtmlReporter extends MatchReporter {
 
     // FIELDS
     /** current contig object */
-    private HtmlContig contig;
+    private HtmlFullSequence contig;
     /** list of contig displays */
     private List<DomContent> pieces;
 
@@ -51,15 +50,15 @@ public class MatchHtmlReporter extends MatchReporter {
     @Override
     protected void openContig() {
         // Create the HTML contig for this new contig.
-        this.contig = new HtmlContig(1, this.getContigLen(), this.getContigId());
+        this.contig = new HtmlFullSequence(1, this.getContigLen(), this.getContigId());
     }
 
     @Override
-    protected void processHit(Feature feat, BlastHit hit) {
-        String label = String.format("ident=%3.2f%% E=%4.3e %s", hit.getPercentIdentity(),
-                hit.getEvalue(), feat.getFunction());
-        Color color = MatchHtmlReporter.computeColor(hit.getPercentSimilarity());
-        HtmlFeature hFeat = new HtmlFeature(feat.getId(), label,
+    protected void processHit(BlastHit hit) {
+        String label = String.format("ident=%3.2f%% E=%4.3e matched=%d/%d %s", hit.getPercentIdentity(),
+                hit.getEvalue(), hit.getNumSimilar(), hit.getSubjectLen(), hit.getSubjectDef());
+        Color color = MatchHtmlReporter.computeColor(hit.getSubjectPercentMatch());
+        HtmlHitSequence hFeat = new HtmlHitSequence(hit.getSubjectId(), label,
                 hit.getQueryLoc(), color);
         this.contig.add(hFeat);
     }

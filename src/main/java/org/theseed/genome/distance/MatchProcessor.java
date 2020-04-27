@@ -21,8 +21,10 @@ import org.theseed.reports.MatchReporter;
 import org.theseed.sequence.DnaDataStream;
 import org.theseed.sequence.FastaInputStream;
 import org.theseed.sequence.Sequence;
+import org.theseed.sequence.blast.BlastDB;
 import org.theseed.sequence.blast.BlastHit;
 import org.theseed.sequence.blast.BlastParms;
+import org.theseed.sequence.blast.DnaBlastDB;
 import org.theseed.sequence.blast.ProteinBlastDB;
 import org.theseed.utils.BaseProcessor;
 
@@ -45,6 +47,7 @@ import org.theseed.utils.BaseProcessor;
  * --minPct		minimum percent coverage of PEG for a match (the default is 75)
  * --tempDir	temporary directory for BLAST databases; the default is "Temp" in the current directory
  * --format		format for the output report (TABLE or HTML)
+ * --dna		use DNA sequences of genome features instead of protein sequences of genome PEGs
  *
  * @author Bruce Parrello
  *
@@ -87,6 +90,10 @@ public class MatchProcessor extends BaseProcessor {
     @Option(name = "--format", usage = "output format for the report")
     private MatchReporter.Type outputFormat;
 
+    /** genome processing mode */
+    @Option(name = "--dna", usage = "if specified, the genome feature DNA will be used, instead of the protein sequences")
+    private boolean dnaMode;
+
     /** file containing the target genome */
     @Argument(index = 0, metaVar = "genome.gto", usage = "target genome file containing the proteins",
             required = true)
@@ -100,6 +107,7 @@ public class MatchProcessor extends BaseProcessor {
         this.minCoverage = 75.0;
         this.tempDir = new File(System.getProperty("user.dir"), "Temp");
         this.outputFormat = MatchReporter.Type.HTML;
+        this.dnaMode = false;
     }
 
     @Override
@@ -131,7 +139,7 @@ public class MatchProcessor extends BaseProcessor {
     public void run() {
         try {
             // Create the BLAST database.
-            ProteinBlastDB blastDB = this.createBlastDb();
+            BlastDB blastDB = this.createBlastDb();
             // Create the BLAST parameters.
             BlastParms parms = new BlastParms().maxE(this.eValue).pctLenOfSubject(this.minCoverage);
             // Now we loop through the input FASTA stream, building batches.
@@ -170,7 +178,7 @@ public class MatchProcessor extends BaseProcessor {
      * @throws InterruptedException
      * @throws IOException
      */
-    private void processBatch(DnaDataStream batch, ProteinBlastDB blastDB, BlastParms parms) throws IOException, InterruptedException {
+    private void processBatch(DnaDataStream batch, BlastDB blastDB, BlastParms parms) throws IOException, InterruptedException {
         // Perform the BLAST.
         Map<String, List<BlastHit>> hitMap = BlastHit.sort(blastDB.blast(batch, parms));
         // Get a sorted list of the query sequence IDs that produced results.
@@ -195,11 +203,15 @@ public class MatchProcessor extends BaseProcessor {
      * @throws IOException
      * @throws InterruptedException
      */
-    private ProteinBlastDB createBlastDb() throws IOException, InterruptedException {
+    private BlastDB createBlastDb() throws IOException, InterruptedException {
         Genome inGenome = new Genome(this.genomeFile);
         this.reporter = MatchReporter.create(this.outputFormat, inGenome, System.out);
-        File tempFile = File.createTempFile("blast", ".faa", this.tempDir);
-        ProteinBlastDB retVal = ProteinBlastDB.create(tempFile, inGenome);
+        File tempFile = File.createTempFile("blast", ".fasta", this.tempDir);
+        BlastDB retVal;
+        if (this.dnaMode)
+            retVal = DnaBlastDB.createFromFeatures(tempFile, inGenome);
+        else
+            retVal = ProteinBlastDB.create(tempFile, inGenome);
         retVal.deleteOnExit();
         return retVal;
     }
