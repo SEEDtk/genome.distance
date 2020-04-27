@@ -159,6 +159,7 @@ public abstract class MatchReporter implements Closeable, AutoCloseable {
      */
     protected void print(String format, Object... args) {
         this.writer.format(format, args);
+        this.writer.println();
     }
 
     /**
@@ -166,6 +167,13 @@ public abstract class MatchReporter implements Closeable, AutoCloseable {
      */
     protected void println(String line) {
         this.writer.println(line);
+    }
+
+    /**
+     * Write a blank output line.
+     */
+    protected void println() {
+        this.writer.println();
     }
 
 

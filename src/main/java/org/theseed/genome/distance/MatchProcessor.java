@@ -185,7 +185,7 @@ public class MatchProcessor extends BaseProcessor {
         ArrayList<String> queryList = new ArrayList<String>(hitMap.keySet());
         queryList.sort(null);
         // Create a comparator for sorting the blast hits by location.
-        Comparator<BlastHit> sortByLoc = new BlastHit.ByQueryLoc();
+        Comparator<BlastHit> sortByLoc = new BlastHit.ByLoc(BlastHit.QUERY);
         for (String seqId : queryList) {
             // Get the hits for this sequence and sort them by location.
             List<BlastHit> hits = hitMap.get(seqId);

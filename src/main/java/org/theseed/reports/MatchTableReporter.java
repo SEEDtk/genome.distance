@@ -29,7 +29,7 @@ public class MatchTableReporter extends MatchReporter {
     @Override
     protected void openContig() {
         // Space before this contig's hits.
-        System.out.println();
+        this.println();
     }
 
     @Override
@@ -37,7 +37,7 @@ public class MatchTableReporter extends MatchReporter {
         // Get the location in the DNA sequence of the hit.
         Location qLoc = hit.getQueryLoc();
         // Write the output line.
-        System.out.format("%s\t%d\t%c\t%d\t%d\t%s\t%4.2f\t%4.3e\t%d\t%s%n",
+        this.print("%s\t%d\t%c\t%d\t%d\t%s\t%4.2f\t%4.3e\t%d\t%s",
                 hit.getQueryId(), hit.getQueryLen(), qLoc.getDir(), qLoc.getLeft(), qLoc.getRight(),
                 hit.getSubjectId(), hit.getSubjectPercentMatch(), hit.getEvalue(), hit.getAlignLen(),
                 hit.getSubjectDef());
