@@ -1,13 +1,14 @@
 /**
  *
  */
-package org.theseed.genome.distance;
+package org.theseed.sequence.blast;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -18,9 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.genome.Genome;
 import org.theseed.reports.MatchReporter;
-import org.theseed.sequence.DnaDataStream;
-import org.theseed.sequence.FastaInputStream;
-import org.theseed.sequence.Sequence;
+import org.theseed.sequence.DnaInputStream;
+import org.theseed.sequence.SequenceDataStream;
 import org.theseed.sequence.blast.BlastDB;
 import org.theseed.sequence.blast.BlastHit;
 import org.theseed.sequence.blast.BlastParms;
@@ -58,9 +58,11 @@ public class MatchProcessor extends BaseProcessor {
     /** logging facility */
     protected static final Logger log = LoggerFactory.getLogger(MatchProcessor.class);
     /** DNA input stream */
-    private FastaInputStream inStream;
+    private DnaInputStream inStream;
     /** output reporter */
     private MatchReporter reporter;
+    /** input genome */
+    private Genome genome;
 
     // COMMAND-LINE OPTION
 
@@ -112,18 +114,22 @@ public class MatchProcessor extends BaseProcessor {
 
     @Override
     protected boolean validateParms() throws IOException {
+        // Read the genome.
+        log.info("Loading genome from {}.", this.genomeFile);
+        this.genome = new Genome(this.genomeFile);
         // Connect to the DNA input stream.
         if (this.inFile == null) {
-            this.inStream = new FastaInputStream(System.in);
+            this.inStream = new DnaInputStream(System.in, this.genome.getGeneticCode());
             log.info("DNA sequences will be read from standard input.");
         } else {
-            this.inStream = new FastaInputStream(this.inFile);
+            this.inStream = new DnaInputStream(this.inFile, this.genome.getGeneticCode());
             log.info("DNA sequences will be read from {}.", this.inFile);
         }
         if (! this.tempDir.isDirectory()) {
             log.info("Creating temporary file directory {}.", this.tempDir);
             FileUtils.forceMkdir(this.tempDir);
         }
+        // Validate the parameters.
         if (this.eValue >= 1.0)
             throw new IllegalArgumentException("Invalid eValue specified.  Must be less than 1.");
         if (this.minCoverage > 100.0)
@@ -145,20 +151,14 @@ public class MatchProcessor extends BaseProcessor {
             // Now we loop through the input FASTA stream, building batches.
             int batchCount = 0;
             int seqCount = 0;
-            DnaDataStream batch = new DnaDataStream(this.batchSize);
-            for (Sequence dnaSeq : this.inStream) {
-                if (batch.size() >= this.batchSize) {
-                    batchCount++;
-                    log.info("Processing input batch {}.", batchCount);
-                    this.processBatch(batch, blastDB, parms);
-                    batch.clear();
-                }
-                batch.add(dnaSeq);
-                seqCount++;
+            Iterator<SequenceDataStream> batcher = this.inStream.batchIterator(batchSize);
+            while (batcher.hasNext()) {
+                SequenceDataStream batch = batcher.next();
+                batchCount++;
+                seqCount += batch.size();
+                log.info("Processing input batch {}.", batchCount);
+                this.processBatch(batch, blastDB, parms);
             }
-            batchCount++;
-            log.info("Processing final batch {}.", batchCount);
-            this.processBatch(batch, blastDB, parms);
             log.info("All done. {} sequences in {} batches processed.", seqCount, batchCount);
             reporter.close();
         } catch (Exception e) {
@@ -178,9 +178,9 @@ public class MatchProcessor extends BaseProcessor {
      * @throws InterruptedException
      * @throws IOException
      */
-    private void processBatch(DnaDataStream batch, BlastDB blastDB, BlastParms parms) throws IOException, InterruptedException {
+    private void processBatch(SequenceDataStream batch, BlastDB blastDB, BlastParms parms) throws IOException, InterruptedException {
         // Perform the BLAST.
-        Map<String, List<BlastHit>> hitMap = BlastHit.sort(blastDB.blast(batch, parms));
+        Map<String, List<BlastHit>> hitMap = BlastHit.sort(batch.blast(blastDB, parms));
         // Get a sorted list of the query sequence IDs that produced results.
         ArrayList<String> queryList = new ArrayList<String>(hitMap.keySet());
         queryList.sort(null);
@@ -204,14 +204,13 @@ public class MatchProcessor extends BaseProcessor {
      * @throws InterruptedException
      */
     private BlastDB createBlastDb() throws IOException, InterruptedException {
-        Genome inGenome = new Genome(this.genomeFile);
-        this.reporter = MatchReporter.create(this.outputFormat, inGenome, System.out);
+        this.reporter = MatchReporter.create(this.outputFormat, genome, System.out);
         File tempFile = File.createTempFile("blast", ".fasta", this.tempDir);
         BlastDB retVal;
         if (this.dnaMode)
-            retVal = DnaBlastDB.createFromFeatures(tempFile, inGenome);
+            retVal = DnaBlastDB.createFromFeatures(tempFile, genome);
         else
-            retVal = ProteinBlastDB.create(tempFile, inGenome);
+            retVal = ProteinBlastDB.create(tempFile, genome);
         retVal.deleteOnExit();
         return retVal;
     }

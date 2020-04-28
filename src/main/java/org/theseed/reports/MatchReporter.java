@@ -3,9 +3,7 @@
  */
 package org.theseed.reports;
 
-import java.io.Closeable;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import org.theseed.genome.Genome;
 import org.theseed.sequence.blast.BlastHit;
 
@@ -15,7 +13,7 @@ import org.theseed.sequence.blast.BlastHit;
  * @author Bruce Parrello
  *
  */
-public abstract class MatchReporter implements Closeable, AutoCloseable {
+public abstract class MatchReporter extends BaseReporter {
 
     // FIELDS
     /** genome containing the features */
@@ -24,9 +22,6 @@ public abstract class MatchReporter implements Closeable, AutoCloseable {
     private String contigId;
     /** length of the current contig */
     private int contigLen;
-    /** output stream for the report */
-    private PrintWriter writer;
-
     /**
      * Enumeration for type of report.
      */
@@ -61,8 +56,8 @@ public abstract class MatchReporter implements Closeable, AutoCloseable {
      * @param genome	genome containing the matching features
      */
     protected MatchReporter(Genome genome, OutputStream output) {
+        super(output);
         this.fidGenome = genome;
-        this.writer = new PrintWriter(output);
         // Denote we don't have a contig yet.
         this.contigId = null;
         // Start the report.
@@ -130,7 +125,7 @@ public abstract class MatchReporter implements Closeable, AutoCloseable {
         // Terminate the whole report.
         this.closeReport();
         // Close the output stream.
-        this.writer.close();
+        super.close();
     }
 
     /**
@@ -152,28 +147,6 @@ public abstract class MatchReporter implements Closeable, AutoCloseable {
      */
     public int getContigLen() {
         return contigLen;
-    }
-
-    /**
-     * Write a formatted output line.
-     */
-    protected void print(String format, Object... args) {
-        this.writer.format(format, args);
-        this.writer.println();
-    }
-
-    /**
-     * Write an unformatted output line.
-     */
-    protected void println(String line) {
-        this.writer.println(line);
-    }
-
-    /**
-     * Write a blank output line.
-     */
-    protected void println() {
-        this.writer.println();
     }
 
 
