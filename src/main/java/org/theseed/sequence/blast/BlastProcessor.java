@@ -184,7 +184,7 @@ public class BlastProcessor extends BaseProcessor {
         log.info("Report format is {} sorted by {}.", this.format, this.sortType);
         if (this.reporter instanceof BlastHtmlReporter) {
             ((BlastHtmlReporter) this.reporter).setColorType(this.colorType);
-            log.info("HTML color scheme for hits will be based on {}.", this.colorType.toString());
+            log.info("HTML color scheme for hits will be based on {}.", this.colorType.description());
         }
         // Create the query sequence stream.
         log.info("Opening query sequence stream of type {} in {}.", this.queryType, this.queryFile);

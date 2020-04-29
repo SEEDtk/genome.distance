@@ -67,8 +67,7 @@ public class BlastHtmlReporter extends BlastReporter {
             return retVal;
         }
 
-        @Override
-        public String toString() {
+        public String description() {
             return this.name;
         }
 
@@ -100,6 +99,13 @@ public class BlastHtmlReporter extends BlastReporter {
         this.println(header(title(title)).render());
         this.println("<body>");
         this.println(h1(title).render());
+        this.println(p("Color is determined by " + this.colorType.description() + ".")
+                .with(table(tr(
+                        th("90% to 100%").withStyle("background-color: " + Color.DARK_GREEN.html() + ";"),
+                        th("70% to 89%").withStyle("background-color: " + Color.ORANGE.html() + ";"),
+                        th("50% to 69%").withStyle("background-color: " + Color.RED.html() + ";"),
+                        th("0% to 49%").withStyle("background-color: " + Color.DARK_GRAY.html() + "; color: white")
+                        ))).renderFormatted());
     }
 
     @Override
