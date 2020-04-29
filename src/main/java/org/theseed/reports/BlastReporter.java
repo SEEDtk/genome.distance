@@ -5,11 +5,12 @@ package org.theseed.reports;
 
 import java.io.Closeable;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.theseed.io.Shuffler;
 import org.theseed.locations.Location;
 import org.theseed.sequence.blast.BlastHit;
@@ -89,7 +90,7 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
      * This enum indicates the type of BLAST report.
      */
     public enum Type {
-        TABLE, HTML;
+        TABLE, HTML, ALIGN;
 
         /**
          * Create a BLAST reporter of this type sorting by the specified sequence.
@@ -106,18 +107,22 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
             case HTML:
                 retVal = new BlastHtmlReporter(stream, type);
                 break;
+            case ALIGN:
+                retVal = new BlastAlignReporter(stream, type);
             }
             return retVal;
         }
     }
 
     // FIELDS
-    /** output stream */
-    private PrintWriter writer;
+    /** message log */
+    protected Logger log = LoggerFactory.getLogger(BlastReporter.class);
     /** target sort type (QUERY or SUBJECT) */
     private SortType sortType;
     /** map of sort sequences to hits */
     private SortedMap<String, List<BlastHit>> hitMap;
+    /** rejection count */
+    private int rejected;
 
     /**
      * Construct a new BLAST reporting facility.
@@ -127,9 +132,9 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
      */
     public BlastReporter(OutputStream output, SortType sort) {
         super(output);
-        this.writer = new PrintWriter(output);
         this.sortType = sort;
-        this.hitMap = new TreeMap<String, List<BlastHit>>();
+        this.hitMap = new TreeMap<String, List<BlastHit>>(new NaturalSort());
+        this.rejected = 0;
     }
 
     /**
@@ -158,9 +163,11 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
                     if (hitLoc.contains(otherLoc)) {
                         // Old location subsumes this one, so we're done.
                         keep = false;
+                        this.rejected++;
                     } else if (otherLoc.contains(hitLoc)) {
                         // This location subsumes old one, so remove it.
                         hitList.remove(i);
+                        this.rejected++;
                     } else {
                         // Locations are different, so keep moving.
                         i++;
@@ -176,22 +183,33 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
      * Output the report.
      *
      * @param title		title to put on report
+     * @param subtitle 	subtitle for report
      */
-    public void writeReport(String title) {
+    public void writeReport(String title, String subtitle) {
         this.openReport(title);
+        this.showSubtitle(subtitle);
         for (String id : this.hitMap.keySet()) {
             // Get the list of hits for this sequence.
             List<BlastHit> hitList = this.hitMap.get(id);
             this.openSection(this.sortType.data(hitList.get(0)));
             // Process each hit.
             for (BlastHit hit : hitList)
-                this.processHit(this.sortType.target(hit), hit);
+                this.processHit(this.sortType.target(hit),
+                        this.sortType.data(hit), hit);
             // Finish up this section.
             this.closeSection();
         }
         // Finish the report.
         this.closeReport();
+        log.info("{} hits removed due to overlap.", this.rejected);
     }
+
+    /**
+     * Display the subtitle.  (This method is optional.)
+     *
+     * @param subtitle	subtitle containing the BLAST parameters
+     */
+    protected void showSubtitle(String subtitle) { }
 
     /**
      * Start the report with the specified title.
@@ -211,9 +229,10 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
      * Process a single hit.
      *
      * @param target	target sequence being hit by the sort sequence
+     * @param anchor	anchor sequence hit by the sort sequence
      * @param hit		BLAST hit
      */
-    protected abstract void processHit(SeqData target, BlastHit hit);
+    protected abstract void processHit(SeqData target, SeqData anchor, BlastHit hit);
 
     /**
      * Finish the section for the current sort sequence.
@@ -225,9 +244,5 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
      */
     protected abstract void closeReport();
 
-    @Override
-    public void close() {
-        writer.close();
-    }
 
 }

@@ -4,9 +4,11 @@
 package org.theseed.reports;
 
 import java.io.OutputStream;
-
+import org.theseed.locations.Location;
 import org.theseed.sequence.blast.BlastHit;
 import org.theseed.sequence.blast.BlastHit.SeqData;
+
+import static j2html.TagCreator.*;
 
 /**
  * @author Bruce Parrello
@@ -52,7 +54,7 @@ public class BlastHtmlReporter extends BlastReporter {
                 break;
             }
             Color retVal;
-            if (fraction >= 1.0)
+            if (fraction > 1.0)
                 retVal = Color.GRAY;
             else if (fraction >= 0.9)
                 retVal = Color.DARK_GREEN.brighten((1.0 - fraction)*5);
@@ -75,6 +77,10 @@ public class BlastHtmlReporter extends BlastReporter {
     // FIELDS
     /** type of color display */
     private ColorType colorType;
+    /** current sequence object */
+    private HtmlFullSequence container;
+    /** link object to use */
+    private LinkObject linker;
 
     /**
      * Construct a report stream for HTML reports.
@@ -85,35 +91,49 @@ public class BlastHtmlReporter extends BlastReporter {
     public BlastHtmlReporter(OutputStream output, SortType sort) {
         super(output, sort);
         this.colorType = ColorType.sim;
+        this.linker = new LinkObject.None();
     }
 
     @Override
     protected void openReport(String title) {
-        // TODO start HTML report
+        this.println("<html>");
+        this.println(header(title(title)).render());
+        this.println("<body>");
+        this.println(h1(title).render());
+    }
 
+    @Override
+    protected void showSubtitle(String subtitle) {
+        this.println(p().with(text("BLAST command-line parameters:"), ul(li(subtitle))).render());
     }
 
     @Override
     protected void openSection(SeqData data) {
-        // TODO initialize current sort sequence
-
+        this.container = new HtmlFullSequence(1, data.getLen(), data.getId() + " " + data.getDef());
     }
 
     @Override
-    protected void processHit(SeqData target, BlastHit hit) {
-        // TODO process a BLAST hit
-
+    protected void processHit(SeqData target, SeqData anchor, BlastHit hit) {
+        Color color = this.colorType.computeColor(target, hit);
+        Location hitLoc = target.getLoc();
+        char dir = (hitLoc.getDir() != anchor.getLoc().getDir() ? '-' : '+');
+        String label = String.format("[e=%4.2e, ident=%4.1f%%, gap=%d, loc=(%d,%d)/%d] %s",
+                hit.getEvalue(), hit.getPercentIdentity(), hit.getNumGap(), hitLoc.getBegin(),
+                hitLoc.getEnd(), target.getLen(), target.getDef());
+        HtmlHitSequence hitDescriptor = new HtmlHitSequence(target.getId(), label,
+                anchor.getLoc(), dir, color);
+        this.container.add(hitDescriptor);
     }
 
     @Override
     protected void closeSection() {
-        // TODO create the display for the current sort sequence
-
+        String text = this.container.draw(this.linker).render();
+        this.println(text);
     }
 
     @Override
     protected void closeReport() {
-        // TODO output the report
+        this.println("</body></html>");
     }
 
     /**

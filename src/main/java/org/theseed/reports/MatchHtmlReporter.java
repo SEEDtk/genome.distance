@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.theseed.genome.Genome;
+import org.theseed.locations.Location;
 import org.theseed.sequence.blast.BlastHit;
 
 import j2html.tags.ContainerTag;
@@ -58,8 +59,10 @@ public class MatchHtmlReporter extends MatchReporter {
         String label = String.format("ident=%3.2f%% E=%4.3e matched=%d/%d %s", hit.getPercentIdentity(),
                 hit.getEvalue(), hit.getNumSimilar(), hit.getSubjectLen(), hit.getSubjectDef());
         Color color = MatchHtmlReporter.computeColor(hit.getSubjectPercentMatch());
+        Location qLoc = hit.getQueryLoc();
+        char dir = (qLoc.getDir() != hit.getSubjectLoc().getDir() ? '-' : '+');
         HtmlHitSequence hFeat = new HtmlHitSequence(hit.getSubjectId(), label,
-                hit.getQueryLoc(), color);
+                qLoc, dir, color);
         this.contig.add(hFeat);
     }
 

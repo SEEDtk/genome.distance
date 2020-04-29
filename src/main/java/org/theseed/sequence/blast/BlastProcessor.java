@@ -5,9 +5,10 @@ package org.theseed.sequence.blast;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
 import org.kohsuke.args4j.Argument;
@@ -152,6 +153,7 @@ public class BlastProcessor extends BaseProcessor {
         this.minPctSubject = 0.0;
         this.numThreads = 1;
         this.sortType = BlastReporter.SortType.QUERY;
+        this.colorType = BlastHtmlReporter.ColorType.ident;
         this.batchSize = 20;
     }
 
@@ -182,7 +184,7 @@ public class BlastProcessor extends BaseProcessor {
         log.info("Report format is {} sorted by {}.", this.format, this.sortType);
         if (this.reporter instanceof BlastHtmlReporter) {
             ((BlastHtmlReporter) this.reporter).setColorType(this.colorType);
-            log.info("HTML color scheme for hits will be by {}.", this.colorType.toString());
+            log.info("HTML color scheme for hits will be based on {}.", this.colorType.toString());
         }
         // Create the query sequence stream.
         log.info("Opening query sequence stream of type {} in {}.", this.queryType, this.queryFile);
@@ -204,24 +206,34 @@ public class BlastProcessor extends BaseProcessor {
             Iterator<SequenceDataStream> batcher = this.query.batchIterator(this.batchSize);
             int batchCount = 0;
             int seqCount = 0;
-            // The results will go in here.
-            List<BlastHit> hits = new ArrayList<BlastHit>(100);
+            int hitCount = 0;
+            int missCount = 0;
             while (batcher.hasNext()) {
                 SequenceDataStream batch = batcher.next();
+                // This set is used to track queries without hits.
+                Set<String> queryIds = batch.stream().map(x -> x.getLabel()).collect(Collectors.toSet());
+                // Record the batch.
                 batchCount++;
                 seqCount += batch.size();
                 log.info("Processing input batch {}, {} sequences read.", batchCount, seqCount);
                 // BLAST the query against the subject.
                 List<BlastHit> results = batch.blast(subject, parms);
-                hits.addAll(results);
+                for (BlastHit hit : results) {
+                    queryIds.remove(hit.getQueryId());
+                    this.reporter.recordHit(hit);
+                    hitCount++;
+                }
+                missCount += queryIds.size();
+                if (log.isDebugEnabled()) {
+                    for (String queryId : queryIds)
+                        log.debug("{} had no hits.", queryId);
+                }
             }
-            log.info("Processing {} hits from BLAST.", hits.size());
-            // Loop through the hits, forming the report.
-            for (BlastHit hit : hits)
-                this.reporter.recordHit(hit);
+            log.info("BLAST found {} hits, {} queries had no hits.", hitCount, missCount);
             // Write the report.
             log.info("Writing report.  {} total sequences in {} batches were processed.", seqCount, batchCount);
-            this.reporter.writeReport("BLAST run against " + this.subjectFile.getName());
+            this.reporter.writeReport(subject.getBlastType().toUpperCase()
+                    + " run against " + this.subjectFile.getName(), subject.getBlastParms());
         } catch (Exception e) {
             e.printStackTrace(System.err);
         } finally {

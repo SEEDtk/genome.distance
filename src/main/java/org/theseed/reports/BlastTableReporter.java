@@ -39,7 +39,7 @@ public class BlastTableReporter extends BlastReporter {
     }
 
     @Override
-    protected void processHit(SeqData target, BlastHit hit) {
+    protected void processHit(SeqData target, SeqData anchor, BlastHit hit) {
         // Display this hit.
         this.println(hit.getPrintLine());
     }
