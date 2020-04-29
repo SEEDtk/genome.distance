@@ -55,15 +55,15 @@ public class BlastHtmlReporter extends BlastReporter {
             }
             Color retVal;
             if (fraction > 1.0)
-                retVal = Color.GRAY;
+                retVal = Color.BLUE;
             else if (fraction >= 0.9)
                 retVal = Color.DARK_GREEN.brighten((1.0 - fraction)*5);
             else if (fraction >= 0.7)
-                retVal = Color.DARK_YELLOW.brighten((0.9 - fraction)*2.5);
+                retVal = Color.ORANGE.brighten((0.9 - fraction)*2.5);
             else if (fraction >= 0.5)
-                retVal = Color.ORANGE.brighten((0.7 - fraction)*2.5);
+                retVal = Color.RED.brighten((0.7 - fraction)*2.5);
             else
-                retVal = Color.RED.brighten(0.5 - fraction);
+                retVal = Color.DARK_GRAY.brighten(0.5 - fraction);
             return retVal;
         }
 

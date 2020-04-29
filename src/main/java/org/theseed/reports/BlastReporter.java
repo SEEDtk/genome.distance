@@ -244,5 +244,12 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
      */
     protected abstract void closeReport();
 
+    /**
+     * @return the sort type
+     */
+    protected SortType getSortType() {
+        return sortType;
+    }
+
 
 }
