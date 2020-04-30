@@ -54,6 +54,7 @@ import org.theseed.utils.BaseProcessor;
  * --sort		sort order of output (QUERY or SUBJECT); the default is QUERY
  * --keep		if specified, the BLAST database will be kept (ignored if database type is "db")
  * --color		color computation scheme for HTML reports; the default is "sim"
+ * --minIdent	minimum percent identity for hits; the default is 0
  *
  * @author Bruce Parrello
  *
@@ -103,6 +104,11 @@ public class BlastProcessor extends BaseProcessor {
             usage  = "minimum percent of subject sequence that must be hit")
     private double minPctSubject;
 
+    /** minimum percent indentity */
+    @Option(name = "--minIdent", aliases = { "--percIdentity", "--minI" }, metaVar = "75",
+            usage = "minimum percent identity for a hit")
+    private double minPctIdentity;
+
     /** maximum number of results to return per query */
     @Option(name = "--max", aliases = { "--maxHSP", "--maxPerQuery" }, metaVar = "10",
             usage = "maximum number of hits to return for each query")
@@ -151,6 +157,7 @@ public class BlastProcessor extends BaseProcessor {
         this.maxPerQuery = 100;
         this.minPctQuery = 0.0;
         this.minPctSubject = 0.0;
+        this.minPctIdentity = 0.0;
         this.numThreads = 1;
         this.sortType = BlastReporter.SortType.QUERY;
         this.colorType = BlastHtmlReporter.ColorType.ident;
@@ -176,32 +183,34 @@ public class BlastProcessor extends BaseProcessor {
             throw new IllegalArgumentException("Minimum query coverage must be between 0 and 100.");
         if (this.minPctSubject < 0.0 || this.minPctSubject > 100.0)
             throw new IllegalArgumentException("Minimum subject coverage must be between 0 and 100.");
+        if (this.minPctIdentity < 0.0 || this.minPctIdentity > 100.0)
+            throw new IllegalArgumentException("Minimum percent identity must be between 0 and 100.");
         // Validate the tuning parameters.
         if (this.batchSize < 1)
             throw new IllegalArgumentException("Query batch size must be at least 1");
-        // Create the reporting object.
-        this.reporter = this.format.create(System.out, this.sortType);
-        log.info("Report format is {} sorted by {}.", this.format, this.sortType);
-        if (this.reporter instanceof BlastHtmlReporter) {
-            ((BlastHtmlReporter) this.reporter).setColorType(this.colorType);
-            log.info("HTML color scheme for hits will be based on {}.", this.colorType.description());
-        }
         // Create the query sequence stream.
         log.info("Opening query sequence stream of type {} in {}.", this.queryType, this.queryFile);
         this.query = this.queryType.query(this.workDir, this.queryFile, this.geneticCode);
+        // Create the subject database.
+        try {
+            log.info("Connecting to subject database of type {} in {}.", this.subjectType, this.subjectFile);
+            this.subject = this.subjectType.subject(this.workDir, this.subjectFile, this.geneticCode, keepDB);
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Error creating subject database: " + e.getMessage());
+        }
+        // Create the reporting object.
+        this.reporter = this.format.create(System.out, this.sortType);
+        log.info("Report format is {} sorted by {}.", this.format, this.sortType);
         return true;
     }
 
     @Override
     public void run() {
         try {
-            // Create the subject database.
-            log.info("Connecting to subject database of type {} in {}.", this.subjectType, this.subjectFile);
-            this.subject = this.subjectType.subject(this.workDir, this.subjectFile, this.geneticCode, keepDB);
             // Create the BLAST parameters.
             BlastParms parms = new BlastParms().maxE(this.eValue).num_threads(this.numThreads)
                     .maxPerQuery(this.maxPerQuery).pctLenOfQuery(this.minPctQuery)
-                    .pctLenOfSubject(this.minPctSubject);
+                    .pctLenOfSubject(this.minPctSubject).minPercent(this.minPctIdentity);
             // Loop through the batches in the query stream.
             Iterator<SequenceDataStream> batcher = this.query.batchIterator(this.batchSize);
             int batchCount = 0;

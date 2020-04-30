@@ -96,7 +96,7 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
          * Create a BLAST reporter of this type sorting by the specified sequence.
          *
          * @param stream	output stream to contain the report
-         * @param type		type of sequence (SUBJECT, QUERY) to sort the report by
+         * @param type		type of sequence (SUBJECT, QUERY) by which to sort the report
          */
         public BlastReporter create(OutputStream stream, SortType type) {
             BlastReporter retVal = null;
@@ -109,6 +109,7 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
                 break;
             case ALIGN:
                 retVal = new BlastAlignReporter(stream, type);
+                break;
             }
             return retVal;
         }
