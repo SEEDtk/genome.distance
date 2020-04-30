@@ -63,7 +63,7 @@ public class BlastAlignReporter extends BlastReporter {
     private void showData(String eColumn, SeqData data, BlastHit hit) {
         Location loc = data.getLoc();
         double coverage = hit.getNumSimilar() * 100.0 / data.getLen();
-        this.print("%s\t%s\t%s\t%d\t%d\t%d\t%d\t%4.1f\t%s", eColumn, data.getId(), data.getDef(),
+        this.print("%s\t%s\t%s\t%d\t%d\t%d\t%d\t%4.2f\t%s", eColumn, data.getId(), data.getDef(),
                 loc.getBegin(), loc.getEnd(), loc.getLength(), data.getLen(),
                 coverage, data.getAlignment());
     }
@@ -73,12 +73,34 @@ public class BlastAlignReporter extends BlastReporter {
         if (this.bestHit != null) {
             // Space before this group.
             this.println();
+            // Compute the anchor and the target.
+            SeqData anchor = this.getSortType().data(this.bestHit);
+            SeqData target = this.getSortType().target(this.bestHit);
             // Write the e-value and the anchor sequence.
             this.showData(String.format("%4.2e", this.bestHit.getEvalue()),
-                    this.getSortType().data(this.bestHit), this.bestHit);
+                    anchor, this.bestHit);
+            // Fix up the target sequence so that the snips are visible.
+            this.findSnips(anchor, target);
             // Write the target sequence with the e-column blank.
-            this.showData("", this.getSortType().target(this.bestHit), this.bestHit);
+            this.showData("", target, this.bestHit);
         }
+    }
+
+    /**
+     * Change the target sequence so that only the SNPs are visible.
+     *
+     * @param anchor	anchor data
+     * @param target	target data
+     */
+    private void findSnips(SeqData anchor, SeqData target) {
+        StringBuilder snips = new StringBuilder(target.getAlignment());
+        String anchorAlignment = anchor.getAlignment();
+        String targetAlignment = target.getAlignment();
+        for (int i = 0; i < anchorAlignment.length(); i++) {
+            if (anchorAlignment.charAt(i) == targetAlignment.charAt(i))
+                snips.setCharAt(i, '.');
+        }
+        target.setAlignment(snips.toString());
     }
 
     @Override
