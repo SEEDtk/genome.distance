@@ -115,6 +115,66 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
         }
     }
 
+    /**
+     * This simple object describes the BLAST info.
+     */
+    public static class Info {
+
+        // FIELDS
+        /** BLAST parameters */
+        private String parms;
+        /** query count */
+        private int queriesIn;
+        /** number of misses */
+        private int missCount;
+        /** number of hits */
+        private int hitCount;
+
+        /**
+         * Construct the information object.
+         *
+         * @param parms		parameters for the BLAST
+         * @param queries	number of incoming queries
+         * @param misses	number of queries without a hit
+         * @param hits		total number of hits
+         */
+        public Info(String parms, int queries, int misses, int hits) {
+            this.parms = parms;
+            this.queriesIn = queries;
+            this.missCount = misses;
+            this.hitCount = hits;
+        }
+
+        /**
+         * @return the BLAST parameters
+         */
+        public String getParms() {
+            return parms;
+        }
+
+        /**
+         * @return the input query count
+         */
+        public int getQueriesIn() {
+            return queriesIn;
+        }
+
+        /**
+         * @return the query miss count
+         */
+        public int getMissCount() {
+            return missCount;
+        }
+
+        /**
+         * @return the hit count
+         */
+        public int getHitCount() {
+            return hitCount;
+        }
+
+    }
+
     // FIELDS
     /** message log */
     protected Logger log = LoggerFactory.getLogger(BlastReporter.class);
@@ -184,11 +244,11 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
      * Output the report.
      *
      * @param title		title to put on report
-     * @param subtitle 	subtitle for report
+     * @param runInfo 	statistics on the run
      */
-    public void writeReport(String title, String subtitle) {
+    public void writeReport(String title, Info runInfo) {
         this.openReport(title);
-        this.showSubtitle(subtitle);
+        this.showSubtitle(runInfo);
         for (String id : this.hitMap.keySet()) {
             // Get the list of hits for this sequence.
             List<BlastHit> hitList = this.hitMap.get(id);
@@ -208,9 +268,9 @@ public abstract class BlastReporter extends BaseReporter implements Closeable, A
     /**
      * Display the subtitle.  (This method is optional.)
      *
-     * @param subtitle	subtitle containing the BLAST parameters
+     * @param runInfo	subtitle containing the BLAST parameters
      */
-    protected void showSubtitle(String subtitle) { }
+    protected void showSubtitle(Info runInfo) { }
 
     /**
      * Start the report with the specified title.

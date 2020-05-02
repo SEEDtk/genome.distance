@@ -11,27 +11,30 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.genome.Genome;
-import org.theseed.reports.MatchReporter;
+import org.theseed.locations.Location;
+import org.theseed.proteins.DnaTranslator;
+import org.theseed.reports.NaturalSort;
 import org.theseed.sequence.DnaInputStream;
+import org.theseed.sequence.Sequence;
 import org.theseed.sequence.SequenceDataStream;
 import org.theseed.sequence.blast.BlastDB;
 import org.theseed.sequence.blast.BlastHit;
 import org.theseed.sequence.blast.BlastParms;
 import org.theseed.sequence.blast.DnaBlastDB;
-import org.theseed.sequence.blast.ProteinBlastDB;
 import org.theseed.utils.BaseProcessor;
 
 /**
- * This command takes DNA from the input and BLASTS it against the pegs of a genome to determine which protein
- * functions are present in each incoming sequence.  The intent is to determine what parts of the genome are
- * covered by the incoming sequences.
+ * This command takes DNA from the input and BLASTS it against the contigs of a genome, then parses proteins
+ * out of the DNA that has good hits.
  *
  * The positional parameter is the name of the genome file.  The DNA FASTA file should come in via the standard
  * input.
@@ -42,12 +45,12 @@ import org.theseed.utils.BaseProcessor;
  * -h	display usage information
  * -i	name of the input file for the DNA (the default is STDIN)
  * -b	number of input sequences to process at a time (the default is 10)
+ * -x	distance to extend the genome hit on either side (the default is 50)
  *
  * --maxE		maximum permissible e-value (the default is 1e-10)
- * --minPct		minimum percent coverage of PEG for a match (the default is 75)
+ * --minPct		minimum percent coverage of an incoming DNA sequence for a match (the default is 95)
  * --tempDir	temporary directory for BLAST databases; the default is "Temp" in the current directory
- * --format		format for the output report (TABLE or HTML)
- * --dna		use DNA sequences of genome features instead of protein sequences of genome PEGs
+ * --maxGap		maximum gap between adjacent hits when they are to be joined.  The default is 500.
  *
  * @author Bruce Parrello
  *
@@ -59,8 +62,6 @@ public class MatchProcessor extends BaseProcessor {
     protected static final Logger log = LoggerFactory.getLogger(MatchProcessor.class);
     /** DNA input stream */
     private DnaInputStream inStream;
-    /** output reporter */
-    private MatchReporter reporter;
     /** input genome */
     private Genome genome;
 
@@ -75,26 +76,22 @@ public class MatchProcessor extends BaseProcessor {
             usage = "number of input sequences to submit to each BLAST call")
     private int batchSize;
 
+    /** distance to extend the genome hit on either side */
+    @Option(name = "-x", aliases = { "--extend" }, metaVar = "20",
+            usage = "distance to extend the genome hit on either side")
+    private int extend;
+
     /** maximum permissible e-value */
     @Option(name = "--maxE", aliases = { "--evalue" }, metaVar = "1e-20", usage = "maximum permissible e-value for a match")
     private double eValue;
-
-    /** minimum permissible PEG coverage */
-    @Option(name = "--minPct", aliases = { "--covg", "--coverage" }, metaVar = "67.7",
-            usage = "minimum permissible coverage of the target proteins")
-    private double minCoverage;
 
     /** temporary directory for BLAST database */
     @Option(name = "--tempDir", metaVar = "Tmp", usage = "temporary directory for BLAST databases")
     private File tempDir;
 
-    /** output report type */
-    @Option(name = "--format", usage = "output format for the report")
-    private MatchReporter.Type outputFormat;
-
-    /** genome processing mode */
-    @Option(name = "--dna", usage = "if specified, the genome feature DNA will be used, instead of the protein sequences")
-    private boolean dnaMode;
+    /** maximum gap between adjacent sequences */
+    @Option(name = "--maxGap", metaVar = "1000", usage = "maximum gap between hits to join")
+    private int maxGap;
 
     /** file containing the target genome */
     @Argument(index = 0, metaVar = "genome.gto", usage = "target genome file containing the proteins",
@@ -105,11 +102,8 @@ public class MatchProcessor extends BaseProcessor {
     protected void setDefaults() {
         this.inFile = null;
         this.batchSize = 10;
-        this.eValue = 1e-10;
-        this.minCoverage = 75.0;
+        this.eValue = 1e-100;
         this.tempDir = new File(System.getProperty("user.dir"), "Temp");
-        this.outputFormat = MatchReporter.Type.HTML;
-        this.dnaMode = false;
     }
 
     @Override
@@ -132,10 +126,12 @@ public class MatchProcessor extends BaseProcessor {
         // Validate the parameters.
         if (this.eValue >= 1.0)
             throw new IllegalArgumentException("Invalid eValue specified.  Must be less than 1.");
-        if (this.minCoverage > 100.0)
-            throw new IllegalArgumentException("Minimum coverage percent must be 100 or less.");
         if (this.batchSize <= 0)
             throw new IllegalArgumentException("Batch size must be 1 or more.");
+        if (this.maxGap < 0)
+            throw new IllegalArgumentException("Maximum gap must be 0 or more.");
+        if (this.extend < 0)
+            throw new IllegalArgumentException("Extension length must be 0 or more.");
         if (! this.genomeFile.canRead())
             throw new FileNotFoundException("Input file" + this.genomeFile + " is not found or unreadable.");
         return true;
@@ -147,7 +143,7 @@ public class MatchProcessor extends BaseProcessor {
             // Create the BLAST database.
             BlastDB blastDB = this.createBlastDb();
             // Create the BLAST parameters.
-            BlastParms parms = new BlastParms().maxE(this.eValue).pctLenOfSubject(this.minCoverage);
+            BlastParms parms = new BlastParms().maxE(this.eValue);
             // Now we loop through the input FASTA stream, building batches.
             int batchCount = 0;
             int seqCount = 0;
@@ -160,7 +156,6 @@ public class MatchProcessor extends BaseProcessor {
                 this.processBatch(batch, blastDB, parms);
             }
             log.info("All done. {} sequences in {} batches processed.", seqCount, batchCount);
-            reporter.close();
         } catch (Exception e) {
             e.printStackTrace(System.err);
         } finally {
@@ -183,17 +178,42 @@ public class MatchProcessor extends BaseProcessor {
         Map<String, List<BlastHit>> hitMap = BlastHit.sort(batch.blast(blastDB, parms));
         // Get a sorted list of the query sequence IDs that produced results.
         ArrayList<String> queryList = new ArrayList<String>(hitMap.keySet());
-        queryList.sort(null);
-        // Create a comparator for sorting the blast hits by location.
-        Comparator<BlastHit> sortByLoc = new BlastHit.ByLoc(BlastHit.QUERY);
+        queryList.sort(new NaturalSort());
+        // Get a map of query sequence IDs to sequences.
+        Map<String, String> qMap = batch.stream().collect(Collectors.toMap(Sequence::getLabel, Sequence::getSequence));
+        // Get a comparator to sort blast hits by subject location.
+        Comparator<BlastHit> sortByLoc = new BlastHit.ByLoc(BlastHit.SUBJECT);
+        // Get the DNA translator for the query sequence.
+        DnaTranslator xlator = new DnaTranslator(this.genome.getGeneticCode());
+        // Loop through the query sequences.
         for (String seqId : queryList) {
-            // Get the hits for this sequence and sort them by location.
+            // Get the hits for this query.
             List<BlastHit> hits = hitMap.get(seqId);
             hits.sort(sortByLoc);
-            this.reporter.startContig(seqId, hits.get(0).getQueryLen());
-            // Output the hits.
-            for (BlastHit hit : hits)
-                this.reporter.recordHit(hit);
+            // Separate into operon groups.  We want the longest and we will create a single merged location.
+            // This will track the current-longest location.
+            Location longest = Location.copy(hits.get(0).getSubjectLoc());
+            Location current = longest;
+            for (int i = 1; i < hits.size(); i++) {
+                Location hitLoc = hits.get(i).getSubjectLoc();
+                if (hitLoc.distance(current) <= this.maxGap)
+                    current.merge(hitLoc);
+                else {
+                    if (current.getLength() > longest.getLength())
+                        longest = current;
+                    current = hitLoc;
+                }
+            }
+            if (current.getLength() > longest.getLength())
+                longest = current;
+            // Expand the location by the extension length on each side.
+            int contigLen = this.genome.getContig(longest.getContigId()).length();
+            longest.expand(this.extend, this.extend, contigLen);
+            // Extract the DNA.
+            String dna = this.genome.getDna(longest);
+            // Now we need to get the proteins.
+            List<String> prots = xlator.operonFrom(qMap.get(seqId));
+            System.out.println(dna + "\t" + StringUtils.join(prots, '\t'));
         }
     }
 
@@ -204,14 +224,9 @@ public class MatchProcessor extends BaseProcessor {
      * @throws InterruptedException
      */
     private BlastDB createBlastDb() throws IOException, InterruptedException {
-        this.reporter = MatchReporter.create(this.outputFormat, genome, System.out);
         File tempFile = File.createTempFile("blast", ".fasta", this.tempDir);
-        BlastDB retVal;
-        if (this.dnaMode)
-            retVal = DnaBlastDB.createFromFeatures(tempFile, genome);
-        else
-            retVal = ProteinBlastDB.create(tempFile, genome);
-        retVal.deleteOnExit();
+        tempFile.deleteOnExit();
+        BlastDB retVal = DnaBlastDB.create(tempFile, genome);
         return retVal;
     }
 

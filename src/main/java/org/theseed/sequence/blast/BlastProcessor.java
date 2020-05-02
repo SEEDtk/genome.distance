@@ -241,8 +241,9 @@ public class BlastProcessor extends BaseProcessor {
             log.info("BLAST found {} hits, {} queries had no hits.", hitCount, missCount);
             // Write the report.
             log.info("Writing report.  {} total sequences in {} batches were processed.", seqCount, batchCount);
+            BlastReporter.Info blastInfo = new BlastReporter.Info(subject.getBlastParms(), seqCount, missCount, hitCount);
             this.reporter.writeReport(subject.getBlastType().toUpperCase()
-                    + " run against " + this.subjectFile.getName(), subject.getBlastParms());
+                    + " run against " + this.subjectFile.getName(), blastInfo);
         } catch (Exception e) {
             e.printStackTrace(System.err);
         } finally {

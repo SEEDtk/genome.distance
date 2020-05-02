@@ -110,8 +110,13 @@ public class BlastHtmlReporter extends BlastReporter {
     }
 
     @Override
-    protected void showSubtitle(String subtitle) {
-        this.println(p().with(text("BLAST command-line parameters:"), ul(li(subtitle))).render());
+    protected void showSubtitle(BlastReporter.Info blastInfo) {
+        this.println(ul(
+                li(blastInfo.getParms()),
+                li(String.format("%d queries produced %d hits.", blastInfo.getQueriesIn(),
+                        blastInfo.getHitCount())),
+                li(String.format("%d queries had no hits.", blastInfo.getMissCount())
+                        )).render());
     }
 
     @Override
