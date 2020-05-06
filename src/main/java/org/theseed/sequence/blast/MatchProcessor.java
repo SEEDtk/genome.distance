@@ -154,7 +154,7 @@ public class MatchProcessor extends BaseProcessor {
                 SequenceDataStream batch = batcher.next();
                 batchCount++;
                 seqCount += batch.size();
-                log.info("Processing input batch {}.", batchCount);
+                log.info("Processing input batch {} with {} sequences.", batchCount, batch.size());
                 this.processBatch(batch, blastDB, parms);
             }
             log.info("All done. {} sequences in {} batches processed.", seqCount, batchCount);
@@ -214,7 +214,8 @@ public class MatchProcessor extends BaseProcessor {
             // Extract the DNA.
             String dna = this.genome.getDna(longest);
             // Now we need to get the proteins.
-            List<String> prots = xlator.operonFrom(qMap.get(seqId));
+            String targetDna = qMap.getOrDefault(seqId, "");
+            List<String> prots = xlator.operonFrom(targetDna);
             if (prots.size() > 0)
                 System.out.println(dna + "\t" + StringUtils.join(prots, '\t'));
         }
