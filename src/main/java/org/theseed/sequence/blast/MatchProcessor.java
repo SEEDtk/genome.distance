@@ -103,6 +103,8 @@ public class MatchProcessor extends BaseProcessor {
         this.inFile = null;
         this.batchSize = 10;
         this.eValue = 1e-100;
+        this.maxGap = 500;
+        this.extend = 50;
         this.tempDir = new File(System.getProperty("user.dir"), "Temp");
     }
 
@@ -213,7 +215,8 @@ public class MatchProcessor extends BaseProcessor {
             String dna = this.genome.getDna(longest);
             // Now we need to get the proteins.
             List<String> prots = xlator.operonFrom(qMap.get(seqId));
-            System.out.println(dna + "\t" + StringUtils.join(prots, '\t'));
+            if (prots.size() > 0)
+                System.out.println(dna + "\t" + StringUtils.join(prots, '\t'));
         }
     }
 
