@@ -2,8 +2,6 @@ package org.theseed.genome.distance;
 
 import java.util.Arrays;
 
-import org.theseed.sequence.blast.BlastProcessor;
-import org.theseed.sequence.blast.MatchProcessor;
 import org.theseed.utils.ICommand;
 
 /**
@@ -18,8 +16,6 @@ import org.theseed.utils.ICommand;
  * width		determine the error rates for different protein sketch widths
  * sketches		convert proteins into signatures (sketches)
  * tune			test different stage and bucket sizes for a protein minHash
- * match		match DNA sequences to proteins in a genome
- * blast		BLAST a sequence source against a BLAST database
  */
 public class App
 {
@@ -57,12 +53,6 @@ public class App
             break;
         case "tune" :
             processor = new TuningProcessor();
-            break;
-        case "match" :
-            processor = new MatchProcessor();
-            break;
-        case "blast" :
-            processor = new BlastProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
