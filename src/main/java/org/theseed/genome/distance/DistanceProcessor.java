@@ -80,44 +80,40 @@ public class DistanceProcessor extends BaseProcessor {
         return true;
     }
 
-    public void run() {
-        try {
-            // Get the base directory.
-            GenomeDirectory baseGenomes = new GenomeDirectory(this.baseDir);
-            // Create the role map.
-            if (this.roleFile != null) {
-                // Here we are reading in a role file.
-                log.info("Reading roles from {}.", this.roleFile);
-                this.usefulRoles = RoleMap.load(this.roleFile);
-            } else {
-                // Here we have to scan the input directory.
-                log.info("Scanning genomes in {} to compute useful roles.", this.baseDir);
-                RoleScanner roleMap = new RoleScanner();
-                roleMap.addGenomes(baseGenomes);
-                this.usefulRoles = roleMap;
-            }
-            // Write the output header.
-            System.out.println("base_id\tbase_name\tgenome_id\tgenome_name\tsimilarity");
-            // Create the main measurement object.
-            for (Genome baseGenome : baseGenomes) {
-                log.info("Loading genome {}.", baseGenome);
-                Measurer baseKmers = new Measurer(baseGenome, this.usefulRoles);
-                // Loop through the input directories.
-                for (File inDir : this.genomeDirs) {
-                    log.info("Processing directory {}.", inDir);
-                    GenomeDirectory genomes = new GenomeDirectory(inDir);
-                    // Loop through the genomes.
-                    for (Genome genome : genomes) {
-                        log.info("Processing genome {}.", genome);
-                        double percent = baseKmers.computePercentSimilarity(genome);
-                        System.out.format("%s\t%s\t%s\t%s\t%8.2f%n", baseGenome.getId(),
-                                baseGenome.getName(), genome.getId(),
-                                genome.getName(), percent);
-                    }
+    public void runCommand() throws Exception {
+        // Get the base directory.
+        GenomeDirectory baseGenomes = new GenomeDirectory(this.baseDir);
+        // Create the role map.
+        if (this.roleFile != null) {
+            // Here we are reading in a role file.
+            log.info("Reading roles from {}.", this.roleFile);
+            this.usefulRoles = RoleMap.load(this.roleFile);
+        } else {
+            // Here we have to scan the input directory.
+            log.info("Scanning genomes in {} to compute useful roles.", this.baseDir);
+            RoleScanner roleMap = new RoleScanner();
+            roleMap.addGenomes(baseGenomes);
+            this.usefulRoles = roleMap;
+        }
+        // Write the output header.
+        System.out.println("base_id\tbase_name\tgenome_id\tgenome_name\tsimilarity");
+        // Create the main measurement object.
+        for (Genome baseGenome : baseGenomes) {
+            log.info("Loading genome {}.", baseGenome);
+            Measurer baseKmers = new Measurer(baseGenome, this.usefulRoles);
+            // Loop through the input directories.
+            for (File inDir : this.genomeDirs) {
+                log.info("Processing directory {}.", inDir);
+                GenomeDirectory genomes = new GenomeDirectory(inDir);
+                // Loop through the genomes.
+                for (Genome genome : genomes) {
+                    log.info("Processing genome {}.", genome);
+                    double percent = baseKmers.computePercentSimilarity(genome);
+                    System.out.format("%s\t%s\t%s\t%s\t%8.2f%n", baseGenome.getId(),
+                            baseGenome.getName(), genome.getId(),
+                            genome.getName(), percent);
                 }
             }
-        } catch (IOException e) {
-            System.err.println(e.getMessage());
         }
     }
 

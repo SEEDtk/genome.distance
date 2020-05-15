@@ -67,41 +67,37 @@ public class RoleScanningProcessor extends BaseProcessor {
     }
 
     @Override
-    public void run() {
-        try {
-            RoleScanner roleMap = new RoleScanner();
-            GenomeDirectory gDir = new GenomeDirectory(this.inputDir);
-            roleMap.addGenomes(gDir);
-            log.info("Saving role map to {}.", this.outFile);
-            roleMap.save(this.outFile);
-            // Now we run through the genomes again, counting each role.
-            CountMap<Role> roleCounts = new CountMap<Role>();
-            double gCount = 0;
-            for (Genome genome : gDir) {
-                log.info("Counting roles in {}.", genome);
-                // This set will track the unique roles found.  We only want to count a role
-                // once per genome.
-                Set<Role> roleSet = new HashSet<Role>();
-                for (Feature fid : genome.getPegs())
-                    for (Role role : fid.getUsefulRoles(roleMap))
-                        roleSet.add(role);
-                // Now count each role.
-                for (Role role : roleSet)
-                    roleCounts.count(role);
-                // Count the genome.
-                gCount++;
-            }
-            // Finally, we output the counts.
-            log.info("{} roles counted in {} genomes.", roleCounts.size(), gCount);
-            System.out.println("Role ID\tRole Name\tCount\tPercent");
-            for (CountMap<Role>.Count count : roleCounts.sortedCounts()) {
-                Role role = count.getKey();
-                double percent = count.getCount() * 100 / gCount;
-                System.out.format("%s\t%s\t%6d\t%8.2f%n", role.getId(), role.getName(), count.getCount(),
-                        percent);
-            }
-        } catch (IOException e) {
-            e.printStackTrace(System.err);
+    public void runCommand() throws Exception {
+        RoleScanner roleMap = new RoleScanner();
+        GenomeDirectory gDir = new GenomeDirectory(this.inputDir);
+        roleMap.addGenomes(gDir);
+        log.info("Saving role map to {}.", this.outFile);
+        roleMap.save(this.outFile);
+        // Now we run through the genomes again, counting each role.
+        CountMap<Role> roleCounts = new CountMap<Role>();
+        double gCount = 0;
+        for (Genome genome : gDir) {
+            log.info("Counting roles in {}.", genome);
+            // This set will track the unique roles found.  We only want to count a role
+            // once per genome.
+            Set<Role> roleSet = new HashSet<Role>();
+            for (Feature fid : genome.getPegs())
+                for (Role role : fid.getUsefulRoles(roleMap))
+                    roleSet.add(role);
+            // Now count each role.
+            for (Role role : roleSet)
+                roleCounts.count(role);
+            // Count the genome.
+            gCount++;
+        }
+        // Finally, we output the counts.
+        log.info("{} roles counted in {} genomes.", roleCounts.size(), gCount);
+        System.out.println("Role ID\tRole Name\tCount\tPercent");
+        for (CountMap<Role>.Count count : roleCounts.sortedCounts()) {
+            Role role = count.getKey();
+            double percent = count.getCount() * 100 / gCount;
+            System.out.format("%s\t%s\t%6d\t%8.2f%n", role.getId(), role.getName(), count.getCount(),
+                    percent);
         }
 
     }

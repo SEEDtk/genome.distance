@@ -119,7 +119,7 @@ public class BuildProcessor extends BaseProcessor {
     }
 
     @Override
-    public void run() {
+    public void runCommand() throws Exception {
         try {
             // Set the tuning parameters.
             log.info("Cache size is {} buckets.", this.cacheLimit);
@@ -150,8 +150,6 @@ public class BuildProcessor extends BaseProcessor {
             // Save the updated database.
             log.info("Saving genome database.");
             this.genomeHash.save();
-        } catch (Exception e) {
-            e.printStackTrace();
         } finally {
             // If we have a genome hash, close it.
             if (this.genomeHash != null)

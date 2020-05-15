@@ -105,64 +105,60 @@ public class TuningProcessor extends BaseProcessor {
     }
 
     @Override
-    public void run() {
-        try {
-            // Write the output header.
-            System.out.println("Stages\tFound\tFailed\tQuality");
-            // Read in all the sketches.
-            log.info("Reading sketches from {}.", this.inFile);
-            Bucket testSketches = Bucket.load(this.inFile);
-            int n = testSketches.size();
-            log.info("{} proteins found in file.", n);
-            // Give each sketch a unique name.
-            int idx = 1;
+    public void runCommand() throws Exception {
+        // Write the output header.
+        System.out.println("Stages\tFound\tFailed\tQuality");
+        // Read in all the sketches.
+        log.info("Reading sketches from {}.", this.inFile);
+        Bucket testSketches = Bucket.load(this.inFile);
+        int n = testSketches.size();
+        log.info("{} proteins found in file.", n);
+        // Give each sketch a unique name.
+        int idx = 1;
+        for (Sketch sketch : testSketches)
+            sketch.setName(String.format("p%d", idx++));
+        // This bucket will hold the sketches that have close neighbors.
+        Bucket goodSketches = new Bucket();
+        // Now track the number of close sketches.  Every sketch is trivially close to itself,
+        // so we count that as well.
+        int totalPairs = 0;
+        for (int i = 0; i < n; i++) {
+            Sketch sketch1 = testSketches.get(i);
+            log.debug("Counting pairs for {}.", sketch1.getName());
+            int expected = 0;
+            for (Sketch sketch2 : testSketches.after(i)) {
+                double distance = sketch1.distance(sketch2);
+                if (distance < this.target)
+                    expected++;
+            }
+            if (expected > 0) {
+                totalPairs += expected;
+                goodSketches.add(sketch1);
+            }
+        }
+        log.info("{} close pairs found in protein list. {} sequences have neighbors.", totalPairs, goodSketches.size());
+        // The expected total is twice the number of pairs (once each direction).
+        totalPairs += totalPairs;
+        // Loop through the sizes, testing each one.  Note the width doesn't matter, since we are going
+        // sketch-to-sketch.
+        for (int stageSize : this.stageSizes) {
+            log.info("Testing {} stages.", stageSize);
+            LSHMemSeqHash hash = new LSHMemSeqHash(200, stageSize, this.bucketCount);
             for (Sketch sketch : testSketches)
-                sketch.setName(String.format("p%d", idx++));
-            // This bucket will hold the sketches that have close neighbors.
-            Bucket goodSketches = new Bucket();
-            // Now track the number of close sketches.  Every sketch is trivially close to itself,
-            // so we count that as well.
-            int totalPairs = 0;
-            for (int i = 0; i < n; i++) {
-                Sketch sketch1 = testSketches.get(i);
-                log.debug("Counting pairs for {}.", sketch1.getName());
-                int expected = 0;
-                for (Sketch sketch2 : testSketches.after(i)) {
-                    double distance = sketch1.distance(sketch2);
-                    if (distance < this.target)
-                        expected++;
-                }
-                if (expected > 0) {
-                    totalPairs += expected;
-                    goodSketches.add(sketch1);
-                }
+                hash.add(sketch);
+            log.info("Hash loaded with {} proteins.", testSketches.size());
+            // Run through each sketch, finding close sketches.  We subtract one for
+            // the sketch that finds itself.
+            int found = 0;
+            int failed = 0;
+            for (Sketch sketch : goodSketches) {
+                Set<Bucket.Result> results = hash.getClose(sketch, this.target);
+                found += results.size() - 1;
+                if (results.size() <= 1)
+                    failed++;
             }
-            log.info("{} close pairs found in protein list. {} sequences have neighbors.", totalPairs, goodSketches.size());
-            // The expected total is twice the number of pairs (once each direction).
-            totalPairs += totalPairs;
-            // Loop through the sizes, testing each one.  Note the width doesn't matter, since we are going
-            // sketch-to-sketch.
-            for (int stageSize : this.stageSizes) {
-                log.info("Testing {} stages.", stageSize);
-                LSHMemSeqHash hash = new LSHMemSeqHash(200, stageSize, this.bucketCount);
-                for (Sketch sketch : testSketches)
-                    hash.add(sketch);
-                log.info("Hash loaded with {} proteins.", testSketches.size());
-                // Run through each sketch, finding close sketches.  We subtract one for
-                // the sketch that finds itself.
-                int found = 0;
-                int failed = 0;
-                for (Sketch sketch : goodSketches) {
-                    Set<Bucket.Result> results = hash.getClose(sketch, this.target);
-                    found += results.size() - 1;
-                    if (results.size() <= 1)
-                        failed++;
-                }
-                System.out.format("%8d\t%8d\t%8d\t%8.4f%n", stageSize, found, failed,
-                        ((double) found) / totalPairs);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+            System.out.format("%8d\t%8d\t%8d\t%8.4f%n", stageSize, found, failed,
+                    ((double) found) / totalPairs);
         }
     }
 

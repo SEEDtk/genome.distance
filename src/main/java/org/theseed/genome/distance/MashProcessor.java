@@ -120,57 +120,53 @@ public class MashProcessor extends BaseProcessor {
     }
 
     @Override
-    public void run() {
-        try {
-            // Initialize some counters.
-            int subjectGenomes = 0;
-            int queryGenomes = 0;
-            int neighborsFound = 0;
-            int noneFound = 0;
-            // Get the subject directory.
-            GenomeDirectory gDir = new GenomeDirectory(this.subjectDir);
-            // Create the genome-name hash.
-            this.genomeNames = new HashMap<String, String>(gDir.size());
-            // Loop through the subject directory, adding genomes to the hash table.
-            for (Genome subject : gDir) {
-                subjectGenomes++;
-                log.info("Processing subject genome #{}: {}.", subjectGenomes, subject);
-                GenomeKmers kmers = new GenomeKmers(subject);
-                this.genomeNames.put(subject.getId(), subject.getName());
-                log.info("Hashing subject genome {}.", subject);
-                this.subjectHash.add(kmers, subject.getId());
-            }
-            log.info("{} subject genomes loaded.", subjectGenomes);
-            // We're loaded.  Write the output header.
-            System.out.println("query_id\tquery_name\tsubject_id\tsubject_name\tdistance");
-            // Now process the query genomes, looking for neighbors.
-            gDir = new GenomeDirectory(this.queryDir);
-            for (Genome query : gDir) {
-                log.info("Searching for neighbors of {}.", query);
-                GenomeKmers kmers = new GenomeKmers(query);
-                SortedSet<Bucket.Result> results = this.subjectHash.getClosest(kmers, this.neighbors, this.maxDist);
-                if (results.size() == 0) {
-                    log.warn("No neighbors with distance <= {} found for genome {}.", this.maxDist, query);
-                    noneFound++;
-                } else {
-                    for (Bucket.Result result : results) {
-                        // Write out this result.
-                        String subjectId = result.getTarget();
-                        String subjectName = this.genomeNames.get(subjectId);
-                        if (subjectName == null)
-                            throw new IllegalStateException("Missing genome " + subjectId + " from subject-genome hash table.");
-                        System.out.format("%s\t%s\t%s\t%s\t%8.3f%n", subjectId, subjectName, query.getId(),
-                                query.getName(), result.getDistance());
-                        neighborsFound++;
-                    }
-                }
-                queryGenomes++;
-            }
-            log.info("All done. {} genomes processed, {} neighbors found, {} searches failed.",
-                    queryGenomes, neighborsFound, noneFound);
-        } catch (Exception e) {
-            e.printStackTrace();
+    public void runCommand() throws Exception {
+        // Initialize some counters.
+        int subjectGenomes = 0;
+        int queryGenomes = 0;
+        int neighborsFound = 0;
+        int noneFound = 0;
+        // Get the subject directory.
+        GenomeDirectory gDir = new GenomeDirectory(this.subjectDir);
+        // Create the genome-name hash.
+        this.genomeNames = new HashMap<String, String>(gDir.size());
+        // Loop through the subject directory, adding genomes to the hash table.
+        for (Genome subject : gDir) {
+            subjectGenomes++;
+            log.info("Processing subject genome #{}: {}.", subjectGenomes, subject);
+            GenomeKmers kmers = new GenomeKmers(subject);
+            this.genomeNames.put(subject.getId(), subject.getName());
+            log.info("Hashing subject genome {}.", subject);
+            this.subjectHash.add(kmers, subject.getId());
         }
+        log.info("{} subject genomes loaded.", subjectGenomes);
+        // We're loaded.  Write the output header.
+        System.out.println("query_id\tquery_name\tsubject_id\tsubject_name\tdistance");
+        // Now process the query genomes, looking for neighbors.
+        gDir = new GenomeDirectory(this.queryDir);
+        for (Genome query : gDir) {
+            log.info("Searching for neighbors of {}.", query);
+            GenomeKmers kmers = new GenomeKmers(query);
+            SortedSet<Bucket.Result> results = this.subjectHash.getClosest(kmers, this.neighbors, this.maxDist);
+            if (results.size() == 0) {
+                log.warn("No neighbors with distance <= {} found for genome {}.", this.maxDist, query);
+                noneFound++;
+            } else {
+                for (Bucket.Result result : results) {
+                    // Write out this result.
+                    String subjectId = result.getTarget();
+                    String subjectName = this.genomeNames.get(subjectId);
+                    if (subjectName == null)
+                        throw new IllegalStateException("Missing genome " + subjectId + " from subject-genome hash table.");
+                    System.out.format("%s\t%s\t%s\t%s\t%8.3f%n", subjectId, subjectName, query.getId(),
+                            query.getName(), result.getDistance());
+                    neighborsFound++;
+                }
+            }
+            queryGenomes++;
+        }
+        log.info("All done. {} genomes processed, {} neighbors found, {} searches failed.",
+                queryGenomes, neighborsFound, noneFound);
     }
 
 }

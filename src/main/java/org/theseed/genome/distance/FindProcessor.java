@@ -85,7 +85,7 @@ public class FindProcessor extends BaseProcessor {
     }
 
     @Override
-    public void run() {
+    public void runCommand() throws Exception {
         // Set the cache limit.
         log.info("Cache limit is {} buckets.", this.cacheLimit);
         LSHDiskSeqHash.setCacheLimit(this.cacheLimit);
@@ -116,8 +116,6 @@ public class FindProcessor extends BaseProcessor {
                 }
             }
             log.info("All done. {} neighbors found. {} failures.", foundCount, failCount);
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
     }

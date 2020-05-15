@@ -85,33 +85,29 @@ public class GenomeProcessor extends BaseProcessor {
     }
 
     @Override
-    public void run() {
-        try {
-            // Write the output header.
-            System.out.println("base_id\tbase_name\tgenome_id\tgenome_name\tdistance");
-            // Create the kmer objects for the base genomes.
-            List<GenomeKmers> baseList = scanDirectoryForKmers(this.baseDir);
-            // Now loop through the comparison genome directories, computing all the distances.
-            for (File compareDir : this.genomeDirs) {
-                log.info("Processing directory {}.", compareDir);
-                GenomeDirectory compareGenomes = new GenomeDirectory(compareDir);
-                for (Genome compare : compareGenomes) {
-                    log.info("Processing compare genome {}.", compare);
-                    GenomeKmers compareKmers = new GenomeKmers(compare);
-                    for (GenomeKmers baseKmers : baseList) {
-                        log.info("Comparing to base genome {} ({}).", baseKmers.getGenomeId(), baseKmers.getGenomeName());
-                        double dist = baseKmers.distance(compareKmers);
-                        if (dist <= this.maxDist)
-                            System.out.format("%s\t%s\t%s\t%s\t%8.4f%n", baseKmers.getGenomeId(),
-                                    baseKmers.getGenomeName(), compareKmers.getGenomeId(),
-                                    compareKmers.getGenomeName(), dist);
-                    }
+    public void runCommand() throws Exception {
+        // Write the output header.
+        System.out.println("base_id\tbase_name\tgenome_id\tgenome_name\tdistance");
+        // Create the kmer objects for the base genomes.
+        List<GenomeKmers> baseList = scanDirectoryForKmers(this.baseDir);
+        // Now loop through the comparison genome directories, computing all the distances.
+        for (File compareDir : this.genomeDirs) {
+            log.info("Processing directory {}.", compareDir);
+            GenomeDirectory compareGenomes = new GenomeDirectory(compareDir);
+            for (Genome compare : compareGenomes) {
+                log.info("Processing compare genome {}.", compare);
+                GenomeKmers compareKmers = new GenomeKmers(compare);
+                for (GenomeKmers baseKmers : baseList) {
+                    log.info("Comparing to base genome {} ({}).", baseKmers.getGenomeId(), baseKmers.getGenomeName());
+                    double dist = baseKmers.distance(compareKmers);
+                    if (dist <= this.maxDist)
+                        System.out.format("%s\t%s\t%s\t%s\t%8.4f%n", baseKmers.getGenomeId(),
+                                baseKmers.getGenomeName(), compareKmers.getGenomeId(),
+                                compareKmers.getGenomeName(), dist);
                 }
             }
-            log.info("All done.");
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
         }
+        log.info("All done.");
     }
 
     /**

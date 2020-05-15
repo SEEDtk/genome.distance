@@ -108,11 +108,9 @@ public abstract class ProteinKmerReader extends BaseProcessor {
     protected abstract void processProteins() throws IOException;
 
     @Override
-    public void run() {
+    public void runCommand() throws Exception {
         try {
             this.processProteins();
-        } catch (Exception e) {
-            e.printStackTrace();
         } finally {
             this.inStream.close();
         }
