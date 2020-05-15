@@ -61,11 +61,11 @@ public class DistanceTest extends TestCase
      */
     public void testRoleScanner() throws IOException {
         RoleScanner newMap = new RoleScanner();
-        assertThat(newMap.size(), equalTo(0));
+        assertThat(newMap.fullSize(), equalTo(0));
         File gtoDir = new File("src/test", "Vipr");
         GenomeDirectory gDir = new GenomeDirectory(gtoDir);
         newMap.addGenomes(gDir);
-        assertThat(newMap.size(), equalTo(11));
+        assertThat(newMap.fullSize(), equalTo(11));
         assertNotNull(newMap.getByName("nucleocapsid protein"));
         assertNotNull(newMap.getByName("orf1ab polyprotein"));
         assertNotNull(newMap.getByName("membrane glycoprotein"));

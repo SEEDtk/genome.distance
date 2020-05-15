@@ -34,7 +34,7 @@ public class RoleScanner extends RoleMap {
             for (String roleDesc : peg.getRoles())
                 this.findOrInsert(roleDesc);
         }
-        log.info("{} roles in map after scan of {}.", this.size(), gto);
+        log.info("{} roles in map after scan of {}.", this.fullSize(), gto);
     }
 
     /**
