@@ -76,6 +76,19 @@ public class Measurer {
      */
     public double computePercentSimilarity(Genome genome) {
         Measurer other = new Measurer(genome, this.roleMap);
+        double retVal = computePercentSimilarity(other);
+        return retVal;
+
+    }
+
+    /**
+     * Compute the percent similarity between this object's genome and another object's genome.
+     *
+     * @param other		measurer for the other genome
+     *
+     * @return the percent similarity between the genomes, based on kmers for roles
+     */
+    public double computePercentSimilarity(Measurer other) {
         // This will total the best similarity for each role.
         double retVal = 0.0;
         // This will count the roles in common.
@@ -86,13 +99,7 @@ public class Measurer {
             if (otherKmerList != null) {
                 // Here the role is in common and we can check the similarity.
                 commonRoles++;
-                double bestDistance = 1.0;
-                for (ProteinKmers myKmer : myKmerList) {
-                    for (ProteinKmers otherKmer : myKmerList) {
-                        double distance = myKmer.distance(otherKmer);
-                        bestDistance = Math.min(distance, bestDistance);
-                    }
-                }
+                double bestDistance = bestDistance(myKmerList, otherKmerList);
                 retVal += 1.0 - bestDistance;
             }
         }
@@ -100,7 +107,38 @@ public class Measurer {
         // convert to a percentage.
         retVal = retVal * 100.0 / (this.roleCount + other.roleCount - commonRoles);
         return retVal;
+    }
 
+    /**
+     * @return the distance between two genomes based on a seed protein.
+     *
+     * @param other		measurer of the other genome to compare to this one
+     * @param seedId	ID of the seed protein
+     */
+    public double computeDistance(Measurer other, String seedId) {
+        Collection<ProteinKmers> myKmerList = this.roleKmers.get(seedId);
+        Collection<ProteinKmers> otherKmerList = other.roleKmers.get(seedId);
+        double retVal = 1.0;
+        if (myKmerList != null && otherKmerList != null)
+            retVal = bestDistance(myKmerList, otherKmerList);
+        return retVal;
+    }
+
+    /**
+     * @return the best distance between kmers in two collections
+     *
+     * @param myKmerList		source collection
+     * @param otherKmerList		target collection
+     */
+    protected double bestDistance(Collection<ProteinKmers> myKmerList, Collection<ProteinKmers> otherKmerList) {
+        double retVal = 1.0;
+        for (ProteinKmers myKmer : myKmerList) {
+            for (ProteinKmers otherKmer : otherKmerList) {
+                double distance = myKmer.distance(otherKmer);
+                retVal = Math.min(distance, retVal);
+            }
+        }
+        return retVal;
     }
 
 }

@@ -4,6 +4,7 @@
 package org.theseed.genome.distance;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 
@@ -31,6 +32,9 @@ import org.theseed.utils.BaseProcessor;
  * 		(tab delimited, role ID, comment, role description); if this parameter is omitted, the input
  * 		directory is scanned to create the map of useful roles
  *
+ * --seed	ID of the seed protein; if this is specified, -R is required.  If specified, the seed protein
+ * 			distances will be shown in a separate column
+ *
  * @author Bruce Parrello
  *
  */
@@ -41,10 +45,7 @@ public class DistanceProcessor extends BaseProcessor {
     protected static Logger log = LoggerFactory.getLogger(DistanceProcessor.class);
 
     /** map of useful roles */
-    RoleMap usefulRoles;
-
-    /** current input genome directory */
-    GenomeDirectory gtoDir;
+    private RoleMap usefulRoles;
 
     // COMMAND LINE
 
@@ -52,6 +53,12 @@ public class DistanceProcessor extends BaseProcessor {
     @Option(name="-R", aliases={"--roles"}, metaVar="roleFile",
             usage="file of useful roles")
     private File roleFile;
+
+    /** ID of the seed protein */
+    @Option(name="--seed", metaVar="PhenTrnaSyntAlph", usage="ID of the seed protein")
+    private String seedProtein;
+
+
 
     /** name of the base genome directory */
     @Argument(index=0, metaVar="gtoDir", required=true, usage="base genome GTO directory")
@@ -63,6 +70,8 @@ public class DistanceProcessor extends BaseProcessor {
 
     @Override
     protected void setDefaults() {
+        this.seedProtein = null;
+        this.roleFile = null;
     }
 
     @Override
@@ -76,6 +85,12 @@ public class DistanceProcessor extends BaseProcessor {
                 throw new IOException("Directory " + genomeDir + " not found or invalid.");
             }
         }
+        // Verify the role file.
+        if (this.roleFile != null && ! this.roleFile.canRead())
+            throw new FileNotFoundException("Role file " + this.roleFile + " not found or unreadable.");
+        // Insure there is a role file if there is a seed protein.
+        if (this.seedProtein != null && this.roleFile == null)
+            throw new IOException("Seed protein requires specification of a role file.");
         // We made it this far, we can run the application.
         return true;
     }
@@ -96,7 +111,10 @@ public class DistanceProcessor extends BaseProcessor {
             this.usefulRoles = roleMap;
         }
         // Write the output header.
-        System.out.println("base_id\tbase_name\tgenome_id\tgenome_name\tsimilarity");
+        String header = "base_id\tbase_name\tgenome_id\tgenome_name\tsimilarity";
+        if (this.seedProtein != null)
+            header += "\tseed_distance";
+        System.out.println(header);
         // Create the main measurement object.
         for (Genome baseGenome : baseGenomes) {
             log.info("Loading genome {}.", baseGenome);
@@ -108,10 +126,16 @@ public class DistanceProcessor extends BaseProcessor {
                 // Loop through the genomes.
                 for (Genome genome : genomes) {
                     log.info("Processing genome {}.", genome);
-                    double percent = baseKmers.computePercentSimilarity(genome);
-                    System.out.format("%s\t%s\t%s\t%s\t%8.2f%n", baseGenome.getId(),
+                    Measurer other = new Measurer(genome, this.usefulRoles);
+                    double percent = baseKmers.computePercentSimilarity(other);
+                    System.out.format("%s\t%s\t%s\t%s\t%8.2f", baseGenome.getId(),
                             baseGenome.getName(), genome.getId(),
                             genome.getName(), percent);
+                    if (this.seedProtein != null) {
+                        double seedDist = baseKmers.computeDistance(other, this.seedProtein);
+                        System.out.format("\t%8.2f", seedDist);
+                    }
+                    System.out.println();
                 }
             }
         }
