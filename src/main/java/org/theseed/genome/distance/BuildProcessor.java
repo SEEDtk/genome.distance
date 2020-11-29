@@ -17,6 +17,7 @@ import org.theseed.genome.GenomeDirectory;
 import org.theseed.sequence.GenomeKmers;
 import org.theseed.sequence.hash.LSHDiskSeqHash;
 import org.theseed.utils.BaseProcessor;
+import org.theseed.utils.ParseFailureException;
 
 /**
  * This command builds and updates a minhash database of genomes.  The genomes are read from one or more
@@ -96,17 +97,17 @@ public class BuildProcessor extends BaseProcessor {
     }
 
     @Override
-    protected boolean validateParms() throws IOException {
+    protected boolean validateParms() throws IOException, ParseFailureException {
         if (this.width < 10)
-            throw new IllegalArgumentException("Signature width must be 10 or more.");
+            throw new ParseFailureException("Signature width must be 10 or more.");
         if (this.buckets < 1)
-            throw new IllegalArgumentException("Buckets per stage must be 1 or more.");
+            throw new ParseFailureException("Buckets per stage must be 1 or more.");
         if (this.stages < 1)
-            throw new IllegalArgumentException("Stage count must be 1 or more.");
+            throw new ParseFailureException("Stage count must be 1 or more.");
         if (this.cacheLimit < 1)
-            throw new IllegalArgumentException("Memory cache limit must be at least 1.");
+            throw new ParseFailureException("Memory cache limit must be at least 1.");
         if (this.kmerSize < 1)
-            throw new IllegalArgumentException("Invalid kmer size.");
+            throw new ParseFailureException("Invalid kmer size.");
         if (! this.dataDir.isDirectory() && ! this.createMode) {
             throw new FileNotFoundException("Database directory " + this.dataDir + " is not found or invalid.");
         }

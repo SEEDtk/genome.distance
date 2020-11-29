@@ -19,6 +19,7 @@ import org.theseed.sequence.GenomeKmers;
 import org.theseed.sequence.hash.Bucket;
 import org.theseed.sequence.hash.LSHDiskSeqHash;
 import org.theseed.utils.BaseProcessor;
+import org.theseed.utils.ParseFailureException;
 
 /**
  * This command reads all the genomes from a directory and returns the close genomes found in a minHash database
@@ -73,9 +74,9 @@ public class FindProcessor extends BaseProcessor {
     }
 
     @Override
-    protected boolean validateParms() throws IOException {
+    protected boolean validateParms() throws IOException, ParseFailureException {
         if (this.cacheLimit < 1)
-            throw new IllegalArgumentException("Memory cache size must be greater than 0.");
+            throw new ParseFailureException("Memory cache size must be greater than 0.");
         if (! this.dataDir.isDirectory())
             throw new FileNotFoundException("Genome database directory " + this.dataDir + " is not found or invalid.");
         for (File gDir : this.genomeDirs)

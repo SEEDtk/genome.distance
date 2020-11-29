@@ -13,6 +13,7 @@ import org.theseed.sequence.hash.Bucket;
 import org.theseed.sequence.hash.LSHMemSeqHash;
 import org.theseed.sequence.hash.Sketch;
 import org.theseed.utils.BaseProcessor;
+import org.theseed.utils.ParseFailureException;
 import org.theseed.utils.SizeList;
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
@@ -86,19 +87,19 @@ public class TuningProcessor extends BaseProcessor {
     }
 
     @Override
-    protected boolean validateParms() throws IOException {
+    protected boolean validateParms() throws IOException, ParseFailureException {
         if (! this.inFile.canRead())
             throw new FileNotFoundException("Input file " + this.inFile + " not found or unreadable.");
         if (this.minStageCount < 1)
-            throw new IllegalArgumentException("Minimum stage count must be at least 1.");
+            throw new ParseFailureException("Minimum stage count must be at least 1.");
         if (this.maxStageCount < this.minStageCount)
-            throw new IllegalArgumentException("Maximum stage count must be no less than minimum.");
+            throw new ParseFailureException("Maximum stage count must be no less than minimum.");
         if (this.stepSize < 1)
-            throw new IllegalArgumentException("Step size must be at least 1.");
+            throw new ParseFailureException("Step size must be at least 1.");
         if (this.bucketCount < 10)
-            throw new IllegalArgumentException("Bucket count must be at least 10.");
+            throw new ParseFailureException("Bucket count must be at least 10.");
         if (this.target <= 0.0 || this.target >= 1.0)
-            throw new IllegalArgumentException("Target distance must be between 0 and 1 (exclusive).");
+            throw new ParseFailureException("Target distance must be between 0 and 1 (exclusive).");
         // Create the size list.
         this.stageSizes = SizeList.getSizes(this.minStageCount, this.maxStageCount, this.stepSize);
         return true;

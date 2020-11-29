@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.sequence.SequenceKmers;
 import org.theseed.sequence.hash.Sketch;
+import org.theseed.utils.ParseFailureException;
 import org.theseed.utils.SizeList;
 
 /**
@@ -86,19 +87,19 @@ public class WidthProcessor extends ProteinKmerReader {
     }
 
     @Override
-    protected boolean validateParms() throws IOException {
+    protected boolean validateParms() throws IOException, ParseFailureException {
         this.validateProteinParms();
         // Validate the positional parameters.
         if (this.minSize > this.maxSize)
-            throw new IllegalArgumentException("Minimum sketch size cannot be larger than maximum.");
+            throw new ParseFailureException("Minimum sketch size cannot be larger than maximum.");
         if (this.stepSize <= 0)
-            throw new IllegalArgumentException("Step size must be greater than 0.");
+            throw new ParseFailureException("Step size must be greater than 0.");
         // Validate the maximum group size.
         if (this.maxGroup < 10)
-            throw new IllegalArgumentException("Maximum group size must be 10 or greater.");
+            throw new ParseFailureException("Maximum group size must be 10 or greater.");
         // Validate the target error level.
         if (this.targetError > 0.1 || this.targetError <= 0.0)
-            throw new IllegalArgumentException("Target error must be > 0 and < 0.1.");
+            throw new ParseFailureException("Target error must be > 0 and < 0.1.");
         // Create the size list.
         this.sizes = SizeList.getSizes(this.minSize, this.maxSize, this.stepSize);
         return true;
