@@ -101,7 +101,7 @@ public class GenomeProcessor extends BaseProcessor {
                     log.info("Comparing to base genome {} ({}).", baseKmers.getGenomeId(), baseKmers.getGenomeName());
                     double dist = baseKmers.distance(compareKmers);
                     if (dist <= this.maxDist)
-                        System.out.format("%s\t%s\t%s\t%s\t%8.4f%n", baseKmers.getGenomeId(),
+                        System.out.format("%s\t%s\t%s\t%s\t%12.8f%n", baseKmers.getGenomeId(),
                                 baseKmers.getGenomeName(), compareKmers.getGenomeId(),
                                 compareKmers.getGenomeName(), dist);
                 }

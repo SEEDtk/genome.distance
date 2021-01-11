@@ -113,7 +113,7 @@ public class DistanceProcessor extends BaseProcessor {
         // Write the output header.
         String header = "base_id\tbase_name\tgenome_id\tgenome_name\tsimilarity";
         if (this.seedProtein != null)
-            header += "\tseed_distance";
+            header += "\tseed_sim";
         System.out.println(header);
         // Create the main measurement object.
         for (Genome baseGenome : baseGenomes) {
@@ -128,12 +128,12 @@ public class DistanceProcessor extends BaseProcessor {
                     log.info("Processing genome {}.", genome);
                     Measurer other = new Measurer(genome, this.usefulRoles);
                     double percent = baseKmers.computePercentSimilarity(other);
-                    System.out.format("%s\t%s\t%s\t%s\t%8.2f", baseGenome.getId(),
+                    System.out.format("%s\t%s\t%s\t%s\t%10.4f", baseGenome.getId(),
                             baseGenome.getName(), genome.getId(),
                             genome.getName(), percent);
                     if (this.seedProtein != null) {
                         double seedDist = baseKmers.computeDistance(other, this.seedProtein);
-                        System.out.format("\t%8.2f", seedDist);
+                        System.out.format("\t%10.4f", 1.0 - seedDist);
                     }
                     System.out.println();
                 }
