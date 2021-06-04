@@ -103,6 +103,13 @@ public abstract class SignatureReporter {
     public abstract void closeReport();
 
     /**
+     * Skip a line to prepare for a secondary report.
+     */
+    public void space() {
+        this.writer.println();
+    }
+
+    /**
      * @return the name of a signature class
      *
      * @param signature		class of interest

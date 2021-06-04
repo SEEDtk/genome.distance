@@ -43,6 +43,7 @@ import org.theseed.counters.CountMap;
  * --min1		minimum fraction of occurrences for a classification in the IN group (default 0.8)
  * --max2		maximum fraction of occurrences for a classification in the OUT group (default 0.2)
  * --roles		name of role definition file (only required for class ROLE)
+ * --both		show signatures for both groups
  *
  * @author Bruce Parrello
  *
@@ -91,6 +92,10 @@ public class SignatureProcessor extends BaseReportProcessor implements Signature
     @Option(name = "--roles", usage = "role definition file (for class type ROLE")
     private File roleFile;
 
+    /** compute signatures in both directions */
+    @Option(name = "--both", usage = "if specified, signatures will be computed in both directions")
+    private boolean bothFlag;
+
     /** input genome source 1 (IN) */
     @Argument(index = 0, metaVar = "genomeDirIN", usage = "source for first (IN) group of genomes")
     private File genomeDir1;
@@ -108,6 +113,7 @@ public class SignatureProcessor extends BaseReportProcessor implements Signature
         this.min1 = 0.80;
         this.max2 = 0.20;
         this.roleFile = null;
+        this.bothFlag = false;
     }
 
     @Override
@@ -144,11 +150,30 @@ public class SignatureProcessor extends BaseReportProcessor implements Signature
         CountMap<String> counts2 = this.computeCounts(this.genomes2);
         log.info("{} classes found for IN group, {} for OUT group.", counts1.size(), counts2.size());
         // Compute the fraction limits.
-        int minCount1 = (int) Math.ceil(this.genomes1.size() * this.min1);
-        int maxCount2 = (int) Math.floor(this.genomes2.size() * this.max2);
+        this.reportSignatures(counts1, counts2, this.genomes1, this.genomes2);
+        // Check for a BOTH request.
+        if (this.bothFlag) {
+            // Leave space between the two reports.
+            this.reporter.space();
+            this.reportSignatures(counts2, counts1, this.genomes2, this.genomes1);
+        }
+    }
+
+    /**
+     * Report the signatures for a particular pair of genome sets.
+     *
+     * @param inCounts		count map for IN group
+     * @param outCounts		count map for OUT group
+     * @param inSource		genome source for IN group
+     * @param outSource		genome source for OUT group
+     */
+    private void reportSignatures(CountMap<String> inCounts, CountMap<String> outCounts, GenomeSource inSource,
+            GenomeSource outSource) {
+        int minCount1 = (int) Math.ceil(inSource.size() * this.min1);
+        int maxCount2 = (int) Math.floor(outSource.size() * this.max2);
         // Extract all the classes that should be included in the report.
-        List<String> signatures = counts1.sortedCounts().stream().filter(x -> x.getCount() >= minCount1)
-                .map(x -> x.getKey()).filter(x -> counts2.getCount(x) <= maxCount2).collect(Collectors.toList());
+        List<String> signatures = inCounts.sortedCounts().stream().filter(x -> x.getCount() >= minCount1)
+                .map(x -> x.getKey()).filter(x -> outCounts.getCount(x) <= maxCount2).collect(Collectors.toList());
         log.info("{} signature classes found.", signatures.size());
         // Create the signature name map.
         Map<String, String> sigMap = this.classifier.getNames(signatures);
@@ -156,7 +181,7 @@ public class SignatureProcessor extends BaseReportProcessor implements Signature
         this.reporter.openReport(sigMap, this.genomes1.size(), this.genomes2.size());
         // Loop through the classes, creating the report.
         for (String signature : signatures)
-            this.reporter.showClass(signature, counts1.getCount(signature), counts2.getCount(signature));
+            this.reporter.showClass(signature, inCounts.getCount(signature), outCounts.getCount(signature));
         // Finish the report.
         this.reporter.closeReport();
     }
