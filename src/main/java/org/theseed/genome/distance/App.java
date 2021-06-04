@@ -2,7 +2,8 @@ package org.theseed.genome.distance;
 
 import java.util.Arrays;
 
-import org.theseed.utils.ICommand;
+import org.theseed.genome.signatures.SignatureProcessor;
+import org.theseed.utils.BaseProcessor;
 
 /**
  * These are various commands related to genome and protein distance.
@@ -16,6 +17,7 @@ import org.theseed.utils.ICommand;
  * width		determine the error rates for different protein sketch widths
  * sketches		convert proteins into signatures (sketches)
  * tune			test different stage and bucket sizes for a protein minHash
+ * sig			find protein signatures between genome groups
  */
 public class App
 {
@@ -24,7 +26,7 @@ public class App
         // Get the control parameter.
         String command = args[0];
         String[] newArgs = Arrays.copyOfRange(args, 1, args.length);
-        ICommand processor;
+        BaseProcessor processor;
         // Parse the parameters.
         switch (command) {
         case "build" :
@@ -53,6 +55,9 @@ public class App
             break;
         case "tune" :
             processor = new TuningProcessor();
+            break;
+        case "sig" :
+            processor = new SignatureProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
