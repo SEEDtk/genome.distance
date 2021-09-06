@@ -19,7 +19,7 @@ import org.theseed.proteins.RoleScanner;
 import org.theseed.utils.BaseProcessor;
 
 /**
- * Compare base genomes to all the genomes in a directory.  The output contains
+ * Compare base genomes to all the genomes in a directory using annotated-protein kmers.  The output contains
  * the percent similarity for each input genome by genome ID.  The positional parameters are
  * the name of the directory containing the base GTO files and the name of the genome directory
  * containing the comparison genomes.  Multiple comparison genome directories can be specified.
