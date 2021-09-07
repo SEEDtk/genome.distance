@@ -19,9 +19,9 @@ import org.theseed.sequence.GenomeKmers;
 import org.theseed.utils.BaseProcessor;
 
 /**
- * This class uses kmer distance to compare all the genomes in one or more genome directories using kmers.
- * This is much more memory-intensive than the protein-based comparison. The positional parameters are
- * the name of the directory containing the base GTO files and the name of the genome directory
+ * This class uses kmer distance to compare all the genomes in one or more genome directories using dna
+ * contig kmers.  This is much more memory-intensive than the protein-based comparison. The positional
+ * parameters are the name of the directory containing the base GTO files and the name of the genome directory
  * containing the comparison genomes.  Multiple comparison genome directories can be specified.
  *
  * The command-line options are as follows.

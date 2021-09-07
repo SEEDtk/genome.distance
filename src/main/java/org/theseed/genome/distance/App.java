@@ -18,6 +18,7 @@ import org.theseed.utils.BaseProcessor;
  * sketches		convert proteins into signatures (sketches)
  * tune			test different stage and bucket sizes for a protein minHash
  * sig			find protein signatures between genome groups
+ * distTable	compute distances for genome pairs
  */
 public class App
 {
@@ -58,6 +59,9 @@ public class App
             break;
         case "sig" :
             processor = new SignatureProcessor();
+            break;
+        case "distTable" :
+            processor = new DistanceTableProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);

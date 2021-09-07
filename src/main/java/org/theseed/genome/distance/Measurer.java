@@ -3,142 +3,156 @@
  */
 package org.theseed.genome.distance;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import org.theseed.genome.Feature;
+import java.io.File;
+import java.io.IOException;
+
 import org.theseed.genome.Genome;
-import org.theseed.proteins.Role;
 import org.theseed.proteins.RoleMap;
-import org.theseed.sequence.ProteinKmers;
+import org.theseed.sequence.GenomeKmers;
+import org.theseed.utils.ParseFailureException;
 
 /**
- * This class creates a protein kmer database for a genome's well-annotated roles.
- * It takes as input the genome itself and a RoleMap of the roles of interest.  The
- * object itself maps each role to a list of protein kmer objects for all the role's
- * proteins in the genome.
+ * This is the base class for a genome distance measurer.  The measurer is constructed from
+ * the genome object itself.  It contains the genome ID and name at this level.  The subclass
+ * must also contain information that can be used to compute the percent similarity between
+ * genomes.
  *
  * @author Bruce Parrello
  *
  */
-public class Measurer {
+public abstract class Measurer {
 
     // FIELDS
-    /** map of role IDs to protein kmer lists */
-    HashMap<String, Collection<ProteinKmers>> roleKmers;
-    /** number of distinct roles in this genome */
-    int roleCount;
-    /** map of useful roles */
-    RoleMap roleMap;
+    /** genome ID */
+    private String genomeId;
+    /** genome name */
+    private String genomeName;
 
     /**
-     * Construct a measurement object from a genome.
-     *
-     * @param genome	the genome for which a measurement object is desired
-     * @param myRoles	a map of the roles of interest to measure
+     * Enumeration for the different measurement types.
      */
-    public Measurer(Genome genome, RoleMap myRoles) {
-        this.roleCount = 0;
-        this.roleMap = myRoles;
-        this.roleKmers = new HashMap<String, Collection<ProteinKmers>>();
-        // Loop through the genome features.
-        for (Feature feat : genome.getPegs()) {
-            // Find any useful roles for this feature.
-            Collection<Role> featRoles = feat.getUsefulRoles(roleMap);
-            if (featRoles.size() > 0) {
-                // Here the feature has at least one useful role.  Get its protein kmers.
-                ProteinKmers kmerObject = new ProteinKmers(feat.getProteinTranslation());
-                // Loop through the feature's roles, adding them to the hash.
-                for (Role role : feat.getUsefulRoles(roleMap)) {
-                    String roleId = role.getId();
-                    if (! roleKmers.containsKey(roleId)) {
-                        // Here we have a new role.
-                        Collection<ProteinKmers> list = new ArrayList<ProteinKmers>(5);
-                        list.add(kmerObject);
-                        roleKmers.put(roleId, list);
-                        this.roleCount++;
-                    } else {
-                        // Here we have an existing role, so add these kmers to the role's
-                        // collection.
-                        roleKmers.get(roleId).add(kmerObject);
-                    }
-                }
+    public static enum Type {
+        PROTEIN {
+            @Override
+            public Measurer create(Genome genome) {
+                return new ProtMeasurer(genome);
             }
-        }
-    }
 
-    /**
-     * Compute the percent similarity between this object's genome and another genome.
-     *
-     * @param genome	genome to compare to this one
-     *
-     * @return the percent similarity between the genomes, based on kmers for roles
-     */
-    public double computePercentSimilarity(Genome genome) {
-        Measurer other = new Measurer(genome, this.roleMap);
-        double retVal = computePercentSimilarity(other);
-        return retVal;
-
-    }
-
-    /**
-     * Compute the percent similarity between this object's genome and another object's genome.
-     *
-     * @param other		measurer for the other genome
-     *
-     * @return the percent similarity between the genomes, based on kmers for roles
-     */
-    public double computePercentSimilarity(Measurer other) {
-        // This will total the best similarity for each role.
-        double retVal = 0.0;
-        // This will count the roles in common.
-        int commonRoles = 0;
-        for (String roleId : this.roleKmers.keySet()) {
-            Collection<ProteinKmers> myKmerList = this.roleKmers.get(roleId);
-            Collection<ProteinKmers> otherKmerList = other.roleKmers.get(roleId);
-            if (otherKmerList != null) {
-                // Here the role is in common and we can check the similarity.
-                commonRoles++;
-                double bestDistance = bestDistance(myKmerList, otherKmerList);
-                retVal += 1.0 - bestDistance;
+            @Override
+            public void init(IParms processor) throws ParseFailureException {
+                // Here we set up the role definitions.
+                File roleFile = processor.getRoleFile();
+                if (roleFile == null)
+                    throw new ParseFailureException("Role definition file required for PROTEIN measurement.");
+                RoleMap roles = RoleMap.load(roleFile);
+                ProtMeasurer.setRoleMap(roles);
             }
-        }
-        // retVal is now a sum of the similarities.  Divide by the role counts and
-        // convert to a percentage.
-        retVal = retVal * 100.0 / (this.roleCount + other.roleCount - commonRoles);
-        return retVal;
-    }
 
-    /**
-     * @return the distance between two genomes based on a seed protein.
-     *
-     * @param other		measurer of the other genome to compare to this one
-     * @param seedId	ID of the seed protein
-     */
-    public double computeDistance(Measurer other, String seedId) {
-        Collection<ProteinKmers> myKmerList = this.roleKmers.get(seedId);
-        Collection<ProteinKmers> otherKmerList = other.roleKmers.get(seedId);
-        double retVal = 1.0;
-        if (myKmerList != null && otherKmerList != null)
-            retVal = bestDistance(myKmerList, otherKmerList);
-        return retVal;
-    }
-
-    /**
-     * @return the best distance between kmers in two collections
-     *
-     * @param myKmerList		source collection
-     * @param otherKmerList		target collection
-     */
-    protected double bestDistance(Collection<ProteinKmers> myKmerList, Collection<ProteinKmers> otherKmerList) {
-        double retVal = 1.0;
-        for (ProteinKmers myKmer : myKmerList) {
-            for (ProteinKmers otherKmer : otherKmerList) {
-                double distance = myKmer.distance(otherKmer);
-                retVal = Math.min(distance, retVal);
+        }, CONTIG {
+            @Override
+            public Measurer create(Genome genome) {
+                return new DnaMeasurer(genome);
             }
+
+            @Override
+            public void init(IParms processor) throws ParseFailureException {
+                // Here we set up the DNA kmer size.
+                int kSize = processor.getKmerSize();
+                if (kSize <= 0)
+                    throw new ParseFailureException("Kmer size must be at least 1 for CONTIG measurement.");
+                GenomeKmers.setKmerSize(kSize);
+            }
+
+        };
+
+        /**
+         * @return a measurer of this type for the specified genome.
+         *
+         * @param genome	genome of interest
+         */
+        public abstract Measurer create(Genome genome);
+
+        /**
+         * Initialize measurement for the specified command processor.
+         *
+         * @params processor	controlling command processor
+         */
+        public abstract void init(IParms processor) throws IOException, ParseFailureException;
+    }
+
+    /**
+     * Interface for processors using a measurer.
+     */
+    public interface IParms {
+
+        /**
+         * @return the role definition file
+         */
+        public File getRoleFile();
+
+        /**
+         * @return the DNA kmer size
+         */
+        public int getKmerSize();
+
+    }
+
+    /**
+     * Construct a measurer.
+     *
+     * @param genome	genome to be measured for distances
+     */
+    public Measurer(Genome genome) {
+        this.genomeId = genome.getId();
+        this.genomeName = genome.getName();
+    }
+
+    /**
+     * @return the genome ID
+     */
+    public String getId() {
+        return this.genomeId;
+    }
+
+    /**
+     * @return the genome name
+     */
+    public String getName() {
+        return this.genomeName;
+    }
+
+    /**
+     * @return the percent similarity between two genomes
+     *
+     * @param other		other genome to compare to this one
+     */
+    public abstract double computePercentSimilarity(Genome other);
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((this.genomeId == null) ? 0 : this.genomeId.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
         }
-        return retVal;
+        if (!(obj instanceof Measurer)) {
+            return false;
+        }
+        Measurer other = (Measurer) obj;
+        if (this.genomeId == null) {
+            if (other.genomeId != null) {
+                return false;
+            }
+        } else if (!this.genomeId.equals(other.genomeId)) {
+            return false;
+        }
+        return true;
     }
 
 }

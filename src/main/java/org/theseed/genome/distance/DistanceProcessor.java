@@ -104,12 +104,14 @@ public class DistanceProcessor extends BaseProcessor {
             log.info("Reading roles from {}.", this.roleFile);
             this.usefulRoles = RoleMap.load(this.roleFile);
         } else {
-            // Here we have to scan the input directory.
+            // Here we have to scan the base directory.
             log.info("Scanning genomes in {} to compute useful roles.", this.baseDir);
             RoleScanner roleMap = new RoleScanner();
             roleMap.addGenomes(baseGenomes);
             this.usefulRoles = roleMap;
         }
+        // Store the role map.
+        ProtMeasurer.setRoleMap(this.usefulRoles);
         // Write the output header.
         String header = "base_id\tbase_name\tgenome_id\tgenome_name\tsimilarity";
         if (this.seedProtein != null)
@@ -118,7 +120,7 @@ public class DistanceProcessor extends BaseProcessor {
         // Create the main measurement object.
         for (Genome baseGenome : baseGenomes) {
             log.info("Loading genome {}.", baseGenome);
-            Measurer baseKmers = new Measurer(baseGenome, this.usefulRoles);
+            ProtMeasurer baseKmers = new ProtMeasurer(baseGenome);
             // Loop through the input directories.
             for (File inDir : this.genomeDirs) {
                 log.info("Processing directory {}.", inDir);
@@ -126,7 +128,7 @@ public class DistanceProcessor extends BaseProcessor {
                 // Loop through the genomes.
                 for (Genome genome : genomes) {
                     log.info("Processing genome {}.", genome);
-                    Measurer other = new Measurer(genome, this.usefulRoles);
+                    ProtMeasurer other = new ProtMeasurer(genome);
                     double percent = baseKmers.computePercentSimilarity(other);
                     System.out.format("%s\t%s\t%s\t%s\t%10.4f", baseGenome.getId(),
                             baseGenome.getName(), genome.getId(),

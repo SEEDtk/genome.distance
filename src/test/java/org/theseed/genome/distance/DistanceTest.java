@@ -48,9 +48,10 @@ public class DistanceTest extends TestCase
     public void testComparison() throws NumberFormatException, IOException {
         File rFile = new File("src/test", "roles.tbl");
         RoleMap roleMap = RoleMap.load(rFile);
+        ProtMeasurer.setRoleMap(roleMap);
         File gFile = new File("src/test", "1166948.3.gto");
         Genome baseGenome = new Genome(gFile);
-        Measurer baseKmers = new Measurer(baseGenome, roleMap);
+        ProtMeasurer baseKmers = new ProtMeasurer(baseGenome);
         assertThat(baseKmers.computePercentSimilarity(baseGenome), equalTo(100.0));
     }
 
