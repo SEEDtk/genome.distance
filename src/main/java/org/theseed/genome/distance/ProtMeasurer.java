@@ -32,6 +32,54 @@ public class ProtMeasurer extends Measurer {
     private static RoleMap roleMap;
 
     /**
+     * This is a utility class to hold a count and an accumulator for creating
+     * the final distance.
+     */
+    private static class Accumulator {
+
+        private int count;
+        private double sum;
+
+        /**
+         * Create a blank accumulator.
+         */
+        protected Accumulator() {
+            this.count = 0;
+            this.sum = 0.0;
+        }
+
+        /**
+         * Add a value to the sum
+         *
+         * @param value		value to add
+         */
+        protected void add(double value) {
+            this.sum += value;
+            this.count++;
+        }
+
+        /**
+         * Merge two accumulators.
+         *
+         * @param other		other accumulator to merge
+         */
+        protected void merge(Accumulator other) {
+            this.sum += other.sum;
+            this.count += other.count;
+        }
+
+        /**
+         * Convert this from a sum of distances to a percent similarity.
+         *
+         * @param count1	number of roles in the first genome
+         * @param count2	number of roles in the second genome
+         */
+        protected double percent(int count1, int count2) {
+            return (this.count - this.sum) * 100.0 / (count1 + count2 - this.count);
+        }
+    }
+
+    /**
      * Specify the role map to use.
      *
      * @param myRoles	role map to store
@@ -97,24 +145,29 @@ public class ProtMeasurer extends Measurer {
      * @return the percent similarity between the genomes, based on kmers for roles
      */
     public double computePercentSimilarity(ProtMeasurer other) {
-        // This will total the best similarity for each role.
-        double retVal = 0.0;
-        // This will count the roles in common.
-        int commonRoles = 0;
-        for (String roleId : this.roleKmers.keySet()) {
-            Collection<ProteinKmers> myKmerList = this.roleKmers.get(roleId);
-            Collection<ProteinKmers> otherKmerList = other.roleKmers.get(roleId);
-            if (otherKmerList != null) {
-                // Here the role is in common and we can check the similarity.
-                commonRoles++;
-                double bestDistance = bestDistance(myKmerList, otherKmerList);
-                retVal += 1.0 - bestDistance;
-            }
-        }
-        // retVal is now a sum of the similarities.  Divide by the role counts and
-        // convert to a percentage.
-        retVal = retVal * 100.0 / (this.roleCount + other.roleCount - commonRoles);
+        // Process all the roles.
+        Accumulator accum = this.roleKmers.keySet().parallelStream()
+                .collect(Accumulator::new, (x, r) -> this.processRole(other, x, r),
+                        (x1,x2) -> x1.merge(x2));
+        double retVal = accum.percent(this.roleCount, other.roleCount);
         return retVal;
+    }
+
+    /**
+     * Process a single role for the comparison.
+     *
+     * @param other		measurer for the other genome
+     * @param accum		accumulator in which to accumulate the results
+     * @param roleId	ID of the role to process
+     */
+    private void processRole(ProtMeasurer other, Accumulator accum, String roleId) {
+        Collection<ProteinKmers> myKmerList = this.roleKmers.get(roleId);
+        Collection<ProteinKmers> otherKmerList = other.roleKmers.get(roleId);
+        if (otherKmerList != null) {
+            // Here the role is in common and we can check the similarity.
+            double bestDistance = this.bestDistance(myKmerList, otherKmerList);
+            accum.add(bestDistance);
+        }
     }
 
     /**
@@ -128,17 +181,21 @@ public class ProtMeasurer extends Measurer {
         Collection<ProteinKmers> otherKmerList = other.roleKmers.get(seedId);
         double retVal = 1.0;
         if (myKmerList != null && otherKmerList != null)
-            retVal = bestDistance(myKmerList, otherKmerList);
+            retVal = this.bestDistance(myKmerList, otherKmerList);
         return retVal;
     }
 
     /**
-     * @return the best distance between kmers in two collections
+     * Compute the lowest distance between items in two kmer lists.  This is not parallelized
+     * because we expect the two lists to be very small, usually one or two kmer sets.
      *
      * @param myKmerList		source collection
      * @param otherKmerList		target collection
+     *
+     * @return the best distance between kmers in two collections
      */
-    protected double bestDistance(Collection<ProteinKmers> myKmerList, Collection<ProteinKmers> otherKmerList) {
+    protected double bestDistance(Collection<ProteinKmers> myKmerList,
+            Collection<ProteinKmers> otherKmerList) {
         double retVal = 1.0;
         for (ProteinKmers myKmer : myKmerList) {
             for (ProteinKmers otherKmer : otherKmerList) {
