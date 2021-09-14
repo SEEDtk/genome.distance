@@ -37,21 +37,21 @@ public class DnaMeasurer extends Measurer {
     }
 
     @Override
-    public double computePercentSimilarity(Genome other) {
-        GenomeKmers otherKmers;
-        try {
-            otherKmers = new GenomeKmers(other);
-        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-        int sim = this.kmers.similarity(otherKmers);
+    public double computePercentSimilarity(Measurer other) {
+        DnaMeasurer actual = (DnaMeasurer) other;
+        int sim = this.kmers.similarity(actual.kmers);
         // Convert the numerical similarity count to a percent similarity.
         double retVal = 1.0;
         if (sim == ProteinKmers.INFINITY)
             retVal = 0.0;
         else if (sim > 0.0)
-            retVal = sim * 100.0 / (this.kmers.size() + otherKmers.size() - sim);
+            retVal = sim * 100.0 / (this.kmers.size() + actual.kmers.size() - sim);
         return retVal;
+    }
+
+    @Override
+    public Type getType() {
+        return Measurer.Type.CONTIG;
     }
 
 }

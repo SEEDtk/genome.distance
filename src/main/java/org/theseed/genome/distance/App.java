@@ -19,6 +19,7 @@ import org.theseed.utils.BaseProcessor;
  * tune			test different stage and bucket sizes for a protein minHash
  * sig			find protein signatures between genome groups
  * distTable	compute distances for genome pairs
+ * outlierChk	analyze the outlier report from "seqTest"
  */
 public class App
 {
@@ -62,6 +63,9 @@ public class App
             break;
         case "distTable" :
             processor = new DistanceTableProcessor();
+            break;
+        case "outlierChk" :
+            processor = new OutlierCheckProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);

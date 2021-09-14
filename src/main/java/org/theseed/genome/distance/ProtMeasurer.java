@@ -144,12 +144,14 @@ public class ProtMeasurer extends Measurer {
      *
      * @return the percent similarity between the genomes, based on kmers for roles
      */
-    public double computePercentSimilarity(ProtMeasurer other) {
+    @Override
+    public double computePercentSimilarity(Measurer other) {
+        ProtMeasurer actual = (ProtMeasurer) other;
         // Process all the roles.
         Accumulator accum = this.roleKmers.keySet().parallelStream()
-                .collect(Accumulator::new, (x, r) -> this.processRole(other, x, r),
+                .collect(Accumulator::new, (x, r) -> this.processRole(actual, x, r),
                         (x1,x2) -> x1.merge(x2));
-        double retVal = accum.percent(this.roleCount, other.roleCount);
+        double retVal = accum.percent(this.roleCount, actual.roleCount);
         return retVal;
     }
 
@@ -205,5 +207,11 @@ public class ProtMeasurer extends Measurer {
         }
         return retVal;
     }
+
+    @Override
+    public Type getType() {
+        return Measurer.Type.PROTEIN;
+    }
+
 
 }

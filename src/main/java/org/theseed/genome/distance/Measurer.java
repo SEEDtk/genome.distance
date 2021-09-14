@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 
 import org.theseed.genome.Genome;
+import org.theseed.p3api.P3Genome;
 import org.theseed.proteins.RoleMap;
 import org.theseed.sequence.GenomeKmers;
 import org.theseed.utils.ParseFailureException;
@@ -48,6 +49,11 @@ public abstract class Measurer {
                 ProtMeasurer.setRoleMap(roles);
             }
 
+            @Override
+            protected P3Genome.Details getLevel() {
+                return P3Genome.Details.PROTEINS;
+            }
+
         }, CONTIG {
             @Override
             public Measurer create(Genome genome) {
@@ -61,6 +67,11 @@ public abstract class Measurer {
                 if (kSize <= 0)
                     throw new ParseFailureException("Kmer size must be at least 1 for CONTIG measurement.");
                 GenomeKmers.setKmerSize(kSize);
+            }
+
+            @Override
+            protected P3Genome.Details getLevel() {
+                return P3Genome.Details.CONTIGS;
             }
 
         };
@@ -78,6 +89,11 @@ public abstract class Measurer {
          * @params processor	controlling command processor
          */
         public abstract void init(IParms processor) throws IOException, ParseFailureException;
+
+        /**
+         * @return the genome detail level required to perform this comparison
+         */
+        protected abstract P3Genome.Details getLevel();
     }
 
     /**
@@ -122,11 +138,28 @@ public abstract class Measurer {
     }
 
     /**
+     * @return the type of this measurer
+     */
+    public abstract Measurer.Type getType();
+    /**
      * @return the percent similarity between two genomes
      *
      * @param other		other genome to compare to this one
      */
-    public abstract double computePercentSimilarity(Genome other);
+    public double computePercentSimilarity(Genome other) {
+        Measurer otherMeasurer = this.getType().create(other);
+        return this.computePercentSimilarity(otherMeasurer);
+    }
+
+    /**
+     * This computes the percent similarity between this measurer and the measurer for another
+     * genome.  The other measurer must be of the same type.
+     *
+     * @param otherMeasurer		measurer for the other genome
+     *
+     * @return the percent similarity between the two genomes
+     */
+    protected abstract double computePercentSimilarity(Measurer otherMeasurer);
 
     @Override
     public int hashCode() {

@@ -4,9 +4,9 @@
     <!--ANT 1.7 is required                                        -->
     <!--define folder properties-->
     <property name="dir.buildfile" value="."/>
+    <property environment="env" />
     <property name="dir.workspace" value="${dir.buildfile}/../.."/>
     <property name="dir.jarfile" value="${dir.workspace}/git/kernel/jars"/>
-    <property environment="env" />
     <target name="create_run_jar">
         <jar destfile="${dir.jarfile}/genome.distance.jar" filesetmanifest="mergewithoutmain">
             <manifest>
@@ -34,6 +34,7 @@
             <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/commons-logging/commons-logging/1.2/commons-logging-1.2.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/commons-codec/commons-codec/1.11/commons-codec-1.11.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/org/apache/httpcomponents/fluent-hc/4.5.12/fluent-hc-4.5.12.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${env.HOME}/.m2/repository/org/apache/commons/commons-collections4/4.4/commons-collections4-4.4.jar"/>
         </jar>
     </target>
 </project>
