@@ -4,10 +4,14 @@
 package org.theseed.genome.distance;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import org.apache.commons.collections4.map.LRUMap;
 import org.kohsuke.args4j.Argument;
@@ -16,12 +20,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.counters.CountMap;
 import org.theseed.genome.Genome;
-import org.theseed.genome.distance.Measurer.IParms;
 import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.p3api.Connection;
 import org.theseed.p3api.P3Genome;
-import org.theseed.utils.BaseReportProcessor;
+import org.theseed.utils.BaseProcessor;
 import org.theseed.utils.ParseFailureException;
 
 /**
@@ -51,7 +54,9 @@ import org.theseed.utils.ParseFailureException;
  * -t	type of genome source (MASTER, DIR, PATRIC)
  * -R	role definition file for protein comparisons
  * -K	kmer size for contig comparisons
+ * -o	name of the output file, if not STDOUT; mutually exclusive with --resume
  *
+ * --resume			if specified, name of an output file already in progress
  * --summary		name of a file to contain a summary report; the default is no report
  * --comparison		comparison (PROTEIN or CONTIG); default PROTEIN
  * --cache			cache size for repgen genomes
@@ -59,7 +64,7 @@ import org.theseed.utils.ParseFailureException;
  * @author Bruce Parrello
  *
  */
-public class OutlierCheckProcessor extends BaseReportProcessor implements IParms {
+public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IParms {
 
     /**
      * This class contains the useful data on a single genome.
@@ -117,6 +122,112 @@ public class OutlierCheckProcessor extends BaseReportProcessor implements IParms
 
     }
 
+    /**
+     * This object contains the results of a comparison
+     */
+    private class GenomeResult {
+
+        /** ID of the test genome */
+        private String genomeId;
+        /** name of the test genome */
+        private String genomeName;
+        /** proximity to the seed protein representative */
+        private double seedRepProx;
+        /** proximity to the RNA representative */
+        private double rnaRepProx;
+        /** "PheS" if the seed representative is closest, else "SSU" */
+        private String best;
+        /** ID of the seed protein representative */
+        private String seedRepId;
+        /** name of the seed protein representative */
+        private String seedRepName;
+        /** ID of the RNA representative */
+        private String rnaRepId;
+        /** name of the RNA representative */
+        private String rnaRepName;
+
+        /**
+         * Construct a genome result from a line in the output file.
+         *
+         * @param line	line read from output file during resume
+         */
+        public GenomeResult(TabbedLineReader.Line line) {
+            this.genomeId = line.get(0);
+            this.genomeName = line.get(1);
+            this.seedRepProx = line.getDouble(2);
+            this.rnaRepProx = line.getDouble(3);
+            this.best = line.get(4);
+            this.seedRepId = line.get(5);
+            this.seedRepName = line.get(6);
+            this.rnaRepId = line.get(7);
+            this.rnaRepName = line.get(8);
+        }
+
+        /**
+         * Construct a genome result for a test genome and its representatives.
+         *
+         * @param testGenomeId		ID of the test genome in PATRIC
+         * @param seedGenomeId		ID of the seed protein representative genome
+         * @param rnaGenomeId		ID of the RNA representative genome
+         */
+        public GenomeResult(String testGenomeId, String seedGenomeId, String rnaGenomeId) {
+            // Get the test genome.
+            Genome testGenome = P3Genome.load(p3, testGenomeId,
+                    OutlierCheckProcessor.this.detailLevel);
+            this.genomeId = testGenomeId;
+            this.genomeName = testGenome.getName();
+            // Create the measurer for this genome.
+            Measurer measurer = OutlierCheckProcessor.this.comparisonType.create(testGenome);
+            // Measure the two representatives against the test genome.
+            Measurer seedGenome = OutlierCheckProcessor.this.getMeasurer(seedGenomeId);
+            this.seedRepProx = measurer.computePercentSimilarity(seedGenome);
+            this.seedRepId = seedGenomeId;
+            this.seedRepName = seedGenome.getName();
+            Measurer rnaGenome = OutlierCheckProcessor.this.getMeasurer(rnaGenomeId);
+            this.rnaRepProx = measurer.computePercentSimilarity(rnaGenome);
+            this.rnaRepId = rnaGenomeId;
+            this.rnaRepName = rnaGenome.getName();
+            // Figure out if this is a win for PheS or SSU.  The loser gets counted
+            // as a failure in the appropriate count map.
+            this.best = "";
+            if (this.seedRepProx > this.rnaRepProx)
+                best = "PheS";
+            else if (this.seedRepProx < rnaRepProx)
+                best = "SSU";
+        }
+
+        /**
+         * Process this genome's proximity information and update the summary information.
+         *
+         * @param writer	output file for the results.
+         */
+        public void process(PrintWriter writer) {
+            switch (this.best) {
+            case "PheS" :
+                OutlierCheckProcessor.this.seedCount++;
+                OutlierCheckProcessor.this.rnaFailures.count(this.rnaRepId);
+                break;
+            case "SSU" :
+                OutlierCheckProcessor.this.rnaCount++;
+                OutlierCheckProcessor.this.seedFailures.count(this.seedRepId);
+                break;
+            }
+            OutlierCheckProcessor.this.seedSum += this.seedRepProx;
+            OutlierCheckProcessor.this.rnaSum += this.rnaRepProx;
+            writer.format("%s\t%s\t%6.2f\t%6.2f\t%s\t%s\t%s\t%s\t%s%n", this.genomeId,
+                    this.genomeName, this.seedRepProx, this.rnaRepProx, this.best,
+                    this.seedRepId, this.seedRepName, this.rnaRepId, this.rnaRepName);
+        }
+
+        /**
+         * @return the test genome ID relevant to this result.
+         */
+        public String getGenomeId() {
+            return this.genomeId;
+        }
+
+    }
+
     // FIELDS
     /** logging facility */
     protected static Logger log = LoggerFactory.getLogger(OutlierCheckProcessor.class);
@@ -147,6 +258,17 @@ public class OutlierCheckProcessor extends BaseReportProcessor implements IParms
     private PrintWriter summStream;
     /** repgen load count */
     private int loadCount;
+    /** total sum of seed protein representative proximities */
+    private double seedSum;
+    /** total sum of RNA representative proximities */
+    private double rnaSum;
+    /** number of seed protein wins */
+    private int seedCount;
+    /** number of RNA wins */
+    private double rnaCount;
+    /** header line for main output */
+    private static final String MAIN_HEADER = "genome_id\tname\tseed_rep_prox\trna_rep_prox\tbest\tseed_rep_id\tseed_rep_name\trna_rep_id\trna_rep_name";
+
 
     // COMMAND-LINE OPTIONS
 
@@ -178,6 +300,14 @@ public class OutlierCheckProcessor extends BaseReportProcessor implements IParms
     @Option(name = "--summary", aliases = { "--summ" }, usage = "summary report file name")
     private File summFile;
 
+    /** output file (if not STDOUT) */
+    @Option(name = "-o", aliases = { "--output" }, usage = "output file for report (if not STDOUT)")
+    private File outFile;
+
+    /** old output file if we are resuming */
+    @Option(name = "--resume", metaVar = "output.log", usage = "if we are resuming, the output file from the interrupted run")
+    private File resumeFile;
+
     /** source for repgen genomes */
     @Argument(index = 0, metaVar = "repgenDir", usage = "genome source for repgen genomes (file or directory)",
             required = true)
@@ -189,14 +319,16 @@ public class OutlierCheckProcessor extends BaseReportProcessor implements IParms
     private int threshold;
 
     @Override
-    protected void setReporterDefaults() {
+    protected void setDefaults() {
         this.cacheSize = 100;
         this.sourceType = GenomeSource.Type.DIR;
         this.comparisonType = Measurer.Type.PROTEIN;
+        this.outFile = null;
+        this.resumeFile = null;
     }
 
     @Override
-    protected void validateReporterParms() throws IOException, ParseFailureException {
+    protected boolean validateParms() throws IOException, ParseFailureException {
         // Validate the threshold.
         if (this.threshold < 0)
             throw new ParseFailureException("Threshold must be non-negative.");
@@ -245,73 +377,72 @@ public class OutlierCheckProcessor extends BaseReportProcessor implements IParms
         } finally {
             inStream.close();
         }
-
         // Finally, insure we can open the output for the summary report.
         if (this.summFile != null) {
             this.summStream = new PrintWriter(this.summFile);
             this.summStream.println("type\tgenome_id\tgenome_name\tfailures");
         }
+        return true;
     }
 
     @Override
-    protected void runReporter(PrintWriter writer) throws Exception {
+    protected void runCommand() throws Exception {
         try {
             // Initialize the count maps.
             this.seedFailures = new CountMap<String>();
             this.rnaFailures = new CountMap<String>();
-            // Write the header line.
-            writer.println("genome_id\tname\tseed_rep_prox\trna_rep_prox\tbest\tseed_rep_id\tseed_rep_name\trna_rep_id\trna_rep_name");
-            // Start the performance timer.
-            long start = System.currentTimeMillis();
             int processCount = 0;
-            int seedCount = 0;
-            int rnaCount = 0;
-            double seedSum = 0.0;
-            double rnaSum = 0.0;
-            // Loop through the input file.
-            for (GenomeData line : this.inputLines) {
-                processCount++;
-                String testGenomeId = line.getTestGenomeId();
-                log.info("Processing genome {}:  {} {}.", processCount, testGenomeId,
-                        line.getTestGenomeName());
-                Genome testGenome = P3Genome.load(p3, testGenomeId, this.detailLevel);
-                // Create the measurer for this genome.
-                Measurer measurer = this.comparisonType.create(testGenome);
-                // Measure the two representatives against the test genome.
-                Measurer seedGenome = this.getMeasurer(line.getSeedGenomeId());
-                double seedProximity = measurer.computePercentSimilarity(seedGenome);
-                seedSum += seedProximity;
-                Measurer rnaGenome = this.getMeasurer(line.getRnaGenomeId());
-                double rnaProximity = measurer.computePercentSimilarity(rnaGenome);
-                rnaSum += rnaProximity;
-                // Figure out if this is a win for PheS or SSU.  The loser gets counted
-                // as a failure in the appropriate count map.
-                String best = "";
-                if (seedProximity > rnaProximity) {
-                    best = "PheS";
-                    seedCount++;
-                    this.rnaFailures.count(rnaGenome.getId());
-                } else if (seedProximity < rnaProximity) {
-                    best = "SSU";
-                    rnaCount++;
-                    this.seedFailures.count(seedGenome.getId());
-                }
-                if (log.isInfoEnabled()) {
-                    double rate = (System.currentTimeMillis() - start) / (processCount * 1000.0);
-                    log.info("{} genomes compared, {} SSU wins, {} PheS wins, {} loads, {} seconds/genome.",
-                            processCount, rnaCount, seedCount, this.loadCount, rate);
-                }
-                writer.format("%s\t%s\t%6.2f\t%6.2f\t%s\t%s\t%s\t%s\t%s%n", testGenomeId,
-                        testGenome.getName(), seedProximity, rnaProximity, best, seedGenome.getId(),
-                        seedGenome.getName(), rnaGenome.getId(), rnaGenome.getName());
-                // Flush periodically.  This is a slow program, and we need to see progress.
-                if (processCount % 10 == 0)
-                    writer.flush();
+            this.seedCount = 0;
+            this.rnaCount = 0;
+            this.seedSum = 0.0;
+            this.rnaSum = 0.0;
+            // Process the resume file.
+            Map<String, GenomeResult> resumeMap = this.readResumeFile();
+            // Compute the output file.
+            OutputStream outStream;
+            if (this.resumeFile != null) {
+                outStream = new FileOutputStream(this.resumeFile);
+                log.info("Writing output to {}.", this.resumeFile);
+            } else if (this.outFile != null) {
+                outStream = new FileOutputStream(this.outFile);
+                log.info("Writing output to {}.", this.outFile);
+            } else {
+                outStream = System.out;
+                log.info("Writing output to standard output.");
             }
-            double seedMean = (seedCount == 0 ? 0 : seedSum / seedCount);
-            double rnaMean =  (rnaCount == 0 ? 0 : rnaSum / rnaCount);
+            try (PrintWriter writer = new PrintWriter(outStream)) {
+                // Write the output header.
+                writer.println(MAIN_HEADER);
+                // Start the performance timer.
+                long start = System.currentTimeMillis();
+                // Loop through the input file.
+                for (GenomeData line : this.inputLines) {
+                    processCount++;
+                    String testGenomeId = line.getTestGenomeId();
+                    log.info("Processing genome {}:  {} {}.", processCount, testGenomeId,
+                            line.getTestGenomeName());
+                    GenomeResult result = resumeMap.get(testGenomeId);
+                    if (result == null)
+                        result = new GenomeResult(testGenomeId, line.getSeedGenomeId(),
+                                line.getRnaGenomeId());
+                    else
+                        resumeMap.remove(testGenomeId);
+                    result.process(writer);
+                    if (log.isInfoEnabled()) {
+                        double rate = (System.currentTimeMillis() - start) / (processCount * 1000.0);
+                        log.info("{} genomes compared, {} SSU wins, {} PheS wins, {} loads, {} seconds/genome.",
+                                processCount, rnaCount, seedCount, this.loadCount, rate);
+                    }
+                    // Flush periodically.  This is a slow program, and we need to see progress.
+                    if (processCount % 10 == 0)
+                        writer.flush();
+                }
+                writer.flush();
+            }
+            double seedMean = (this.seedCount == 0 ? 0 : this.seedSum / this.seedCount);
+            double rnaMean =  (this.rnaCount == 0 ? 0 : this.rnaSum / this.rnaCount);
             log.info("{} comparisons. {} PheS wins, PheS mean is {}.  {} SSU wins, SSU mean is {}.",
-                    processCount, seedCount, seedMean, rnaCount, rnaMean);
+                    processCount, this.seedCount, seedMean, this.rnaCount, rnaMean);
             if (this.summStream != null) {
                 // Here we need a summary report.
                 this.writeSummaryReport("SSU", this.rnaFailures);
@@ -322,6 +453,28 @@ public class OutlierCheckProcessor extends BaseReportProcessor implements IParms
             if (this.summStream != null)
                 this.summStream.close();
         }
+    }
+
+    /**
+     * Read the resume file and spool it into the resume map.
+     *
+     * @return a map from genome IDs to the results of genomes already processed
+     *
+     * @throws IOException
+     */
+    private Map<String, GenomeResult> readResumeFile() throws IOException {
+        Map<String, GenomeResult> retVal = new HashMap<String, GenomeResult>(5000);
+        if (this.resumeFile != null) {
+            log.info("Reading old results from {}.", this.resumeFile);
+            try (TabbedLineReader inStream = new TabbedLineReader(this.resumeFile)) {
+                for (TabbedLineReader.Line line : inStream) {
+                    GenomeResult result = new GenomeResult(line);
+                    retVal.put(result.getGenomeId(), result);
+                }
+            }
+            log.info("{} old results found.", retVal.size());
+        }
+        return retVal;
     }
 
     /**
