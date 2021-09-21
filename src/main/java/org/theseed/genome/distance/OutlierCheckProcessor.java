@@ -265,7 +265,7 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
     /** number of seed protein wins */
     private int seedCount;
     /** number of RNA wins */
-    private double rnaCount;
+    private int rnaCount;
     /** header line for main output */
     private static final String MAIN_HEADER = "genome_id\tname\tseed_rep_prox\trna_rep_prox\tbest\tseed_rep_id\tseed_rep_name\trna_rep_id\trna_rep_name";
 
@@ -392,6 +392,7 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
             this.seedFailures = new CountMap<String>();
             this.rnaFailures = new CountMap<String>();
             int processCount = 0;
+            int computeCount = 0;
             this.seedCount = 0;
             this.rnaCount = 0;
             this.seedSum = 0.0;
@@ -418,18 +419,21 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
                 // Loop through the input file.
                 for (GenomeData line : this.inputLines) {
                     processCount++;
+                    boolean computed = false;
                     String testGenomeId = line.getTestGenomeId();
                     log.info("Processing genome {}:  {} {}.", processCount, testGenomeId,
                             line.getTestGenomeName());
                     GenomeResult result = resumeMap.get(testGenomeId);
-                    if (result == null)
+                    if (result == null) {
                         result = new GenomeResult(testGenomeId, line.getSeedGenomeId(),
                                 line.getRnaGenomeId());
-                    else
+                        computed = true;
+                    } else
                         resumeMap.remove(testGenomeId);
                     result.process(writer);
-                    if (log.isInfoEnabled()) {
-                        double rate = (System.currentTimeMillis() - start) / (processCount * 1000.0);
+                    if (log.isInfoEnabled() && computed) {
+                        computeCount++;
+                        double rate = (System.currentTimeMillis() - start) / (computeCount * 1000.0);
                         log.info("{} genomes compared, {} SSU wins, {} PheS wins, {} loads, {} seconds/genome.",
                                 processCount, rnaCount, seedCount, this.loadCount, rate);
                     }
