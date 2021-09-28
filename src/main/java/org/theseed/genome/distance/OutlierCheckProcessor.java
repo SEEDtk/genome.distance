@@ -217,6 +217,9 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
             writer.format("%s\t%s\t%6.2f\t%6.2f\t%s\t%s\t%s\t%s\t%s%n", this.genomeId,
                     this.genomeName, this.seedRepProx, this.rnaRepProx, this.best,
                     this.seedRepId, this.seedRepName, this.rnaRepId, this.rnaRepName);
+            // Insure we have the names for the summary report.
+            OutlierCheckProcessor.this.nameMap.put(this.seedRepId, this.seedRepName);
+            OutlierCheckProcessor.this.nameMap.put(this.rnaRepId, this.rnaRepName);
         }
 
         /**
@@ -266,6 +269,8 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
     private int seedCount;
     /** number of RNA wins */
     private int rnaCount;
+    /** genome name map */
+    private Map<String, String> nameMap;
     /** header line for main output */
     private static final String MAIN_HEADER = "genome_id\tname\tseed_rep_prox\trna_rep_prox\tbest\tseed_rep_id\tseed_rep_name\trna_rep_id\trna_rep_name";
 
@@ -391,6 +396,7 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
             // Initialize the count maps.
             this.seedFailures = new CountMap<String>();
             this.rnaFailures = new CountMap<String>();
+            this.nameMap = new HashMap<String, String>(1000);
             int processCount = 0;
             int computeCount = 0;
             this.seedCount = 0;
@@ -509,7 +515,7 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
         for (CountMap<String>.Count counter : counts.sortedCounts()) {
             int count = counter.getCount();
             String genomeId = counter.getKey();
-            String genomeName = this.measureMap.get(genomeId).getName();
+            String genomeName = this.nameMap.get(genomeId);
             this.summStream.format("%s\t%s\t%s\t%d%n", type, genomeId, genomeName, count);
         }
     }
