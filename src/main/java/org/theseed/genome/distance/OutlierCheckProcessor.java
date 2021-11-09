@@ -22,7 +22,7 @@ import org.theseed.counters.CountMap;
 import org.theseed.genome.Genome;
 import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.io.TabbedLineReader;
-import org.theseed.p3api.Connection;
+import org.theseed.p3api.P3Connection;
 import org.theseed.p3api.P3Genome;
 import org.theseed.utils.BaseProcessor;
 import org.theseed.utils.ParseFailureException;
@@ -235,7 +235,7 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
     /** logging facility */
     protected static Logger log = LoggerFactory.getLogger(OutlierCheckProcessor.class);
     /** connection to PATRIC */
-    private Connection p3;
+    private P3Connection p3;
     /** map of repgen genome IDs to measurers; this is a cache; we can't hold more that 150
      * on most machines */
     private LRUMap<String, Measurer> measureMap;
@@ -346,7 +346,7 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
         this.measureMap = new LRUMap<String, Measurer>(this.cacheSize);
         this.loadCount = 0;
         // Connect to PATRIC.
-        this.p3 = new Connection();
+        this.p3 = new P3Connection();
         // Determine the detail level for this comparison type.
         this.detailLevel = this.comparisonType.getLevel();
         // Initialize the comparison parameters.

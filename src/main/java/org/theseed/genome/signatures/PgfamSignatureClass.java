@@ -8,8 +8,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.theseed.genome.Feature;
-import org.theseed.p3api.Connection;
-import org.theseed.p3api.Connection.Table;
+import org.theseed.p3api.P3Connection;
+import org.theseed.p3api.P3Connection.Table;
 
 import com.github.cliftonlabs.json_simple.JsonObject;
 
@@ -35,7 +35,7 @@ public class PgfamSignatureClass extends SignatureClass {
     @Override
     public Map<String, String> getNames(Collection<String> signatures) {
         // Connect to PATRIC.
-        Connection p3 = new Connection();
+        P3Connection p3 = new P3Connection();
         // Try to find the family names in the PATRIC family table.
         log.info("Retrieving {} family names from PATRIC.", signatures.size());
         Map<String, JsonObject> families = p3.getRecords(Table.FAMILY, signatures, "family_id,family_product");
@@ -47,7 +47,7 @@ public class PgfamSignatureClass extends SignatureClass {
             // If all we have at the end is an empty string, we create a default name.
             String name = "";
             if (record != null)
-                name = Connection.getString(record, "family_product");
+                name = P3Connection.getString(record, "family_product");
             if (name.isEmpty())
                 name = "Missing function " + signature;
             retVal.put(signature, name);
