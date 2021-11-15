@@ -1,9 +1,6 @@
 package org.theseed.genome.distance;
 
-import junit.framework.Test;
-
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
+import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -19,32 +16,15 @@ import org.theseed.proteins.RoleScanner;
 /**
  * Unit test for simple App.
  */
-public class DistanceTest extends TestCase
+public class DistanceTest
 {
-    /**
-     * Create the test case
-     *
-     * @param testName name of the test case
-     */
-    public DistanceTest( String testName )
-    {
-        super( testName );
-    }
-
-    /**
-     * @return the suite of tests being tested
-     */
-    public static Test suite()
-    {
-        return new TestSuite( DistanceTest.class );
-    }
-
     /**
      * genome compare test
      *
      * @throws IOException
      * @throws NumberFormatException
      */
+    @Test
     public void testComparison() throws NumberFormatException, IOException {
         File rFile = new File("data", "roles.tbl");
         RoleMap roleMap = RoleMap.load(rFile);
@@ -75,6 +55,7 @@ public class DistanceTest extends TestCase
      *
      * @throws IOException
      */
+    @Test
     public void testRoleScanner() throws IOException {
         RoleScanner newMap = new RoleScanner();
         assertThat(newMap.fullSize(), equalTo(0));
@@ -82,9 +63,9 @@ public class DistanceTest extends TestCase
         GenomeDirectory gDir = new GenomeDirectory(gtoDir);
         newMap.addGenomes(gDir);
         assertThat(newMap.fullSize(), equalTo(11));
-        assertNotNull(newMap.getByName("nucleocapsid protein"));
-        assertNotNull(newMap.getByName("orf1ab polyprotein"));
-        assertNotNull(newMap.getByName("membrane glycoprotein"));
+        assertThat(newMap.getByName("nucleocapsid protein"), not(nullValue()));
+        assertThat(newMap.getByName("orf1ab polyprotein"), not(nullValue()));
+        assertThat(newMap.getByName("membrane glycoprotein"), not(nullValue()));
     }
 
 }
