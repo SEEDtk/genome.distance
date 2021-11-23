@@ -69,7 +69,7 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
     private File inFile;
 
     /** type of input genome source */
-    @Option(name = "--type", aliases = { "-t" }, usage = "type of genome source")
+    @Option(name = "--type", aliases = { "-t", "--source" }, usage = "type of genome source")
     private GenomeSource.Type inType;
 
     /** input role definition file */
