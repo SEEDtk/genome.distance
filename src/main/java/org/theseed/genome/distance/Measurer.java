@@ -141,6 +141,7 @@ public abstract class Measurer {
      * @return the type of this measurer
      */
     public abstract Measurer.Type getType();
+
     /**
      * @return the percent similarity between two genomes
      *

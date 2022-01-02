@@ -20,6 +20,7 @@ import org.theseed.utils.BaseProcessor;
  * sig			find protein signatures between genome groups
  * distTable	compute distances for genome pairs
  * outlierChk	analyze the outlier report from "seqTest"
+ * methods		compare the performance of close-genome methods
  */
 public class App
 {
@@ -66,6 +67,9 @@ public class App
             break;
         case "outlierChk" :
             processor = new OutlierCheckProcessor();
+            break;
+        case "methods" :
+            processor = new MethodCompareProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
