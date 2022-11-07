@@ -113,11 +113,11 @@ public class ProtMeasurer extends Measurer {
         if (feat.getType().contentEquals("CDS")) {
             // Find any useful roles for this feature.
             Collection<Role> featRoles = feat.getUsefulRoles(roleMap);
-            if (featRoles.size() > 0) {
+            if (! featRoles.isEmpty()) {
                 // Here the feature has at least one useful role.  Get its protein kmers.
                 ProteinKmers kmerObject = new ProteinKmers(feat.getProteinTranslation());
-                // Loop through the feature's roles, adding them to the hash.
-                for (Role role : feat.getUsefulRoles(roleMap)) {
+                // Loop through the feature's roles, adding the kmers to the role's kmer list.
+                for (Role role : featRoles) {
                     Collection<ProteinKmers> list = this.roleKmers.computeIfAbsent(role.getId(),
                             x -> new ArrayList<ProteinKmers>(5));
                     synchronized(list) {

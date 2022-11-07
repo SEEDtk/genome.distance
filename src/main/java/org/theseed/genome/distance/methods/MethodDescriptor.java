@@ -25,7 +25,7 @@ public class MethodDescriptor implements Measurer.IParms {
     /** role definition map */
     private static RoleMap roleMap;
     /** DNA kmer size */
-    private static int dnaKmerSize;
+    private int dnaKmerSize;
 
     @Override
     public int getKmerSize() {

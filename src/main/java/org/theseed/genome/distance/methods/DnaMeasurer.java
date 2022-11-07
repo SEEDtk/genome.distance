@@ -41,10 +41,10 @@ public class DnaMeasurer extends Measurer {
         DnaMeasurer actual = (DnaMeasurer) other;
         int sim = this.kmers.similarity(actual.kmers);
         // Convert the numerical similarity count to a percent similarity.
-        double retVal = 1.0;
+        double retVal = 0.0;
         if (sim == ProteinKmers.INFINITY)
-            retVal = 0.0;
-        else if (sim > 0.0)
+            retVal = 100.0;
+        else if (sim > 0)
             retVal = sim * 100.0 / (this.kmers.size() + actual.kmers.size() - sim);
         return retVal;
     }

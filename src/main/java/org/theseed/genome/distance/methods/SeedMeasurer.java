@@ -57,7 +57,7 @@ public class SeedMeasurer extends Measurer {
             String prot = peg.getProteinTranslation();
             if (prot.length() > bestProt.length()) {
                 // Here the protein is long enough.  Now do the slower check for a role match.
-                if (! peg.getUsefulRoles(roleMap).isEmpty())
+                if (peg.isInteresting(roleMap))
                     bestProt = prot;
             }
         }
