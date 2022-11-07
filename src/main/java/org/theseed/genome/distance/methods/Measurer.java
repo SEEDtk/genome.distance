@@ -1,13 +1,13 @@
 /**
  *
  */
-package org.theseed.genome.distance;
+package org.theseed.genome.distance.methods;
 
-import java.io.File;
 import java.io.IOException;
 
 import org.theseed.genome.Genome;
 import org.theseed.p3api.P3Genome;
+import org.theseed.p3api.P3Genome.Details;
 import org.theseed.proteins.RoleMap;
 import org.theseed.sequence.GenomeKmers;
 import org.theseed.utils.ParseFailureException;
@@ -33,6 +33,7 @@ public abstract class Measurer {
      * Enumeration for the different measurement types.
      */
     public static enum Type {
+        /** kmer distance on a protein/protein basis */
         PROTEIN {
             @Override
             public Measurer create(Genome genome) {
@@ -42,11 +43,10 @@ public abstract class Measurer {
             @Override
             public void init(IParms processor) throws ParseFailureException {
                 // Here we set up the role definitions.
-                File roleFile = processor.getRoleFile();
-                if (roleFile == null)
-                    throw new ParseFailureException("Role definition file required for PROTEIN measurement.");
-                RoleMap roles = RoleMap.load(roleFile);
-                ProtMeasurer.setRoleMap(roles);
+                var roleMap = processor.getRoleMap();
+                if (roleMap == null)
+                    throw new ParseFailureException("Role definitions required for PROTEIN measurement.");
+                ProtMeasurer.setRoleMap(roleMap);
             }
 
             @Override
@@ -54,7 +54,10 @@ public abstract class Measurer {
                 return P3Genome.Details.PROTEINS;
             }
 
-        }, CONTIG {
+        },
+
+        /** raw DNA kmer distance */
+        CONTIG {
             @Override
             public Measurer create(Genome genome) {
                 return new DnaMeasurer(genome);
@@ -74,7 +77,59 @@ public abstract class Measurer {
                 return P3Genome.Details.CONTIGS;
             }
 
-        };
+        },
+
+        /** kmer distance for a single seed protein */
+        SEED {
+
+            @Override
+            public Measurer create(Genome genome) {
+                return new SeedMeasurer(genome);
+            }
+
+            @Override
+            public void init(IParms processor) throws IOException, ParseFailureException {
+                // Here we set up the role definition.
+                var roleMap = processor.getRoleMap();
+                if (roleMap == null)
+                    throw new ParseFailureException("Role definitions required for SEED measurement.");
+                String seedId = processor.getSeedId();
+                if (seedId == null)
+                    throw new ParseFailureException("Seed protein ID required for SEED measurement.");
+                SeedMeasurer.setRole(roleMap, seedId);
+            }
+
+            @Override
+            protected Details getLevel() {
+                return P3Genome.Details.PROTEINS;
+            }
+
+        },
+
+        /** kmer distance for SSUs */
+        SSU {
+
+            @Override
+            public Measurer create(Genome genome) {
+                return new SsuMeasurer(genome);
+            }
+
+            @Override
+            public void init(IParms processor) throws IOException, ParseFailureException {
+                // Here we set up the DNA kmer size.
+                int kSize = processor.getKmerSize();
+                if (kSize <= 0)
+                    throw new ParseFailureException("Kmer size must be at least 1 for SSU measurement.");
+                GenomeKmers.setKmerSize(kSize);
+            }
+
+            @Override
+            protected Details getLevel() {
+                return P3Genome.Details.FULL;
+            }
+
+        }
+        ;
 
         /**
          * @return a measurer of this type for the specified genome.
@@ -102,14 +157,19 @@ public abstract class Measurer {
     public interface IParms {
 
         /**
-         * @return the role definition file
+         * @return the role definition map
          */
-        public File getRoleFile();
+        public RoleMap getRoleMap();
 
         /**
          * @return the DNA kmer size
          */
         public int getKmerSize();
+
+        /**
+         * @return the seed protein ID
+         */
+        public String getSeedId();
 
     }
 
@@ -160,7 +220,7 @@ public abstract class Measurer {
      *
      * @return the percent similarity between the two genomes
      */
-    protected abstract double computePercentSimilarity(Measurer otherMeasurer);
+    public abstract double computePercentSimilarity(Measurer otherMeasurer);
 
     @Override
     public int hashCode() {
@@ -187,6 +247,15 @@ public abstract class Measurer {
             return false;
         }
         return true;
+    }
+
+    /**
+     * @return the detail level required for genomes when using the specified comparison
+     *
+     * @param comparisonType	type of comparison to check
+     */
+    public static Details getLevel(Type comparisonType) {
+        return comparisonType.getLevel();
     }
 
 }

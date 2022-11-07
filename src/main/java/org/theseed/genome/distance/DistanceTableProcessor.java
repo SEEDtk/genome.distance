@@ -14,8 +14,11 @@ import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.genome.Genome;
+import org.theseed.genome.distance.methods.GenomePairList;
+import org.theseed.genome.distance.methods.Measurer;
 import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.io.TabbedLineReader;
+import org.theseed.proteins.RoleMap;
 import org.theseed.sequence.GenomeKmers;
 import org.theseed.utils.BaseReportProcessor;
 import org.theseed.utils.ParseFailureException;
@@ -36,9 +39,12 @@ import org.theseed.utils.ParseFailureException;
  * -t	type of genome source (PATRIC, MASTER, DIR); the default is DIR
  * -R	role definition file for protein comparisons
  * -K	kmer size for contig comparisons
+ * -P	seed protein ID for seed-protein comparisons
  *
  * --skipMissing	if specified, missing genomes will be skipped; the default is to terminate the
  * 					process
+ * --col1			index (1-based) or name for input column containing the first genome ID; default "1"
+ * --col2			index (1-based) or name for input column containing the second genome ID; default "2"
  *
  * --method		comparison method; the default is PROTEIN
  *
@@ -61,6 +67,12 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
     private Measurer current;
     /** set of genome IDs in the genome source */
     private Set<String> genomesFound;
+    /** index of input column for first genome ID */
+    private int col1idx;
+    /** index of input column for second genome ID */
+    private int col2idx;
+    /** role definition map */
+    private RoleMap roleMap;
 
     // COMMAND-LINE OPTIONS
 
@@ -73,12 +85,16 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
     private GenomeSource.Type inType;
 
     /** input role definition file */
-    @Option(name = "--roles", aliases = { "-R" }, usage = "role definition file (for method = PROTEIN")
+    @Option(name = "--roles", aliases = { "-R" }, usage = "role definition file (for method = PROTEIN or SEED")
     private File roleFile;
 
     /** DNA kmer size */
     @Option(name = "--dnaKmer", aliases = { "-K", "--kmer" }, usage = "DNA kmer size (for method = CONTIG")
     private int dnaKmerSize;
+
+    /** seed protein ID */
+    @Option(name = "--seed", aliases = { "-P" }, usage = "seed protein ID")
+    private String seedProt;
 
     /** method for computing distance */
     @Option(name = "--method", usage = "method for computing distance")
@@ -87,6 +103,14 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
     /** TRUE if we want to skip missing genomes instead of throwing an error */
     @Option(name = "--skipMissing", usage = "if specified, missing genomes will be skipped instead of causing an error")
     private boolean skipFlag;
+
+    /** ID of first-genome input column */
+    @Option(name = "--col1", aliases = { "-1", "--c1" }, usage = "index (1-based) or name of input column for first genome ID")
+    private String col1;
+
+    /** ID of second-genome input column */
+    @Option(name = "--col2", aliases = { "-2", "--c2" }, usage = "index (1-based) or name of input column for second genome ID")
+    private String col2;
 
     /** source for genomes */
     @Argument(index = 0, metaVar = "inDir", usage = "source for genomes")
@@ -100,6 +124,9 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
         this.method = Measurer.Type.PROTEIN;
         this.inType = GenomeSource.Type.DIR;
         this.skipFlag = false;
+        this.seedProt = "PhenTrnaSyntAlph";
+        this.col1 = "1";
+        this.col2 = "2";
     }
 
     @Override
@@ -119,8 +146,18 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
             log.info("Pairs will be read from {}.", this.inFile);
             this.inStream = new TabbedLineReader(this.inFile);
         }
+        // Get the input columns.
+        this.col1idx = this.inStream.findField(this.col1);
+        this.col2idx = this.inStream.findField(this.col2);
         // Create the genome pair list.
         this.pairList = new GenomePairList();
+        // Load the role map, if any.
+        if (this.roleFile == null)
+            this.roleMap = null;
+        else {
+            log.info("Loading role definitions from {}.", this.roleFile);
+            this.roleMap = RoleMap.load(this.roleFile);
+        }
     }
 
     @Override
@@ -129,8 +166,8 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
             // First, we read all the pairs from the standard input.
             for (TabbedLineReader.Line line : this.inStream) {
                 // Insure we have both genomes in this pair.
-                String id1 = line.get(0);
-                String id2 = line.get(1);
+                String id1 = line.get(this.col1idx);
+                String id2 = line.get(this.col2idx);
                 boolean ok = (this.verify(id1) && this.verify(id2));
                 // Queue the pair for later processing.
                 if (ok)
@@ -177,6 +214,7 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
      * @param id	ID of the genome of interest
      */
     private Measurer getMeasurer(String id) {
+        log.info("Loading genome for {}.", id);
         Genome genome = this.genomes.getGenome(id);
         log.info("Loading measurer for {}.", genome);
         Measurer retVal = this.method.create(genome);
@@ -205,13 +243,18 @@ public class DistanceTableProcessor extends BaseReportProcessor implements Measu
     }
 
     @Override
-    public File getRoleFile() {
-        return this.roleFile;
+    public int getKmerSize() {
+        return this.dnaKmerSize;
     }
 
     @Override
-    public int getKmerSize() {
-        return this.dnaKmerSize;
+    public String getSeedId() {
+        return this.seedProt;
+    }
+
+    @Override
+    public RoleMap getRoleMap() {
+        return this.roleMap;
     }
 
 }

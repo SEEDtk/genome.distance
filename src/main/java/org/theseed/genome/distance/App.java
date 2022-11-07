@@ -19,8 +19,10 @@ import org.theseed.utils.BaseProcessor;
  * tune			test different stage and bucket sizes for a protein minHash
  * sig			find protein signatures between genome groups
  * distTable	compute distances for genome pairs
+ * methods		compute distances using multiple methods
  * outlierChk	analyze the outlier report from "seqTest"
- * methods		compare the performance of close-genome methods
+ * mCompare		compare the performance of close-genome methods
+ *
  */
 public class App
 {
@@ -50,6 +52,9 @@ public class App
         case "mash" :
             processor = new MashProcessor();
             break;
+        case "methods" :
+            processor = new MethodTableProcessor();
+            break;
         case "width" :
             processor = new WidthProcessor();
             break;
@@ -68,7 +73,7 @@ public class App
         case "outlierChk" :
             processor = new OutlierCheckProcessor();
             break;
-        case "methods" :
+        case "mCompare" :
             processor = new MethodCompareProcessor();
             break;
         default :

@@ -1,7 +1,7 @@
 /**
  *
  */
-package org.theseed.genome.distance;
+package org.theseed.genome.distance.methods;
 
 import java.util.ArrayList;
 import java.util.Collections;

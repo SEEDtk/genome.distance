@@ -20,10 +20,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.counters.CountMap;
 import org.theseed.genome.Genome;
+import org.theseed.genome.distance.methods.Measurer;
 import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.p3api.P3Connection;
 import org.theseed.p3api.P3Genome;
+import org.theseed.proteins.RoleMap;
 import org.theseed.utils.BaseProcessor;
 import org.theseed.utils.ParseFailureException;
 
@@ -38,6 +40,10 @@ import org.theseed.utils.ParseFailureException;
  * the match is considered problematic.  For each problematic match, we compute the full-genome
  * similarity between the source and both representatives.  The resulting percent similarities
  * are output along with an indicator of which is closest.
+ *
+ * The full-genome similarity can be computed by various means.  If the SEED method is chosen,
+ * then the seed protein ID should be overridden to insure we are comparing two different
+ * things.
  *
  * The positional parameters are the name of the genome source for the representative genomes
  * and the representation threshold for the representative set.  The outlier file is
@@ -271,6 +277,8 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
     private int rnaCount;
     /** genome name map */
     private Map<String, String> nameMap;
+    /** master role definition map */
+    private RoleMap roleMap;
     /** header line for main output */
     private static final String MAIN_HEADER = "genome_id\tname\tseed_rep_prox\trna_rep_prox\tbest\tseed_rep_id\tseed_rep_name\trna_rep_id\trna_rep_name";
 
@@ -301,6 +309,10 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
     @Option(name = "--dnaKmer", aliases = { "-K", "--kmer" }, usage = "DNA kmer size (for method = CONTIG")
     private int dnaKmerSize;
 
+    /** seed protein ID */
+    @Option(name = "--seed", aliases = { "-P" }, usage = "seed protein ID")
+    private String seedProt;
+
     /** summary report file name */
     @Option(name = "--summary", aliases = { "--summ" }, usage = "summary report file name")
     private File summFile;
@@ -330,6 +342,7 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
         this.comparisonType = Measurer.Type.PROTEIN;
         this.outFile = null;
         this.resumeFile = null;
+        this.seedProt = "PhenTrnaSyntAlph";
     }
 
     @Override
@@ -348,7 +361,7 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
         // Connect to PATRIC.
         this.p3 = new P3Connection();
         // Determine the detail level for this comparison type.
-        this.detailLevel = this.comparisonType.getLevel();
+        this.detailLevel = Measurer.getLevel(this.comparisonType);
         // Initialize the comparison parameters.
         this.comparisonType.init(this);
         // Open the input stream.
@@ -381,6 +394,13 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
             log.info("{} outliers of interest found.", this.inputLines.size());
         } finally {
             inStream.close();
+        }
+        // Load the role map, if any.
+        if (this.roleFile == null)
+            this.roleMap = null;
+        else {
+            log.info("Loading role definitions from {}.", this.roleFile);
+            this.roleMap = RoleMap.load(this.roleFile);
         }
         // Finally, insure we can open the output for the summary report.
         if (this.summFile != null) {
@@ -521,13 +541,18 @@ public class OutlierCheckProcessor extends BaseProcessor implements Measurer.IPa
     }
 
     @Override
-    public File getRoleFile() {
-        return this.roleFile;
+    public int getKmerSize() {
+        return this.dnaKmerSize;
     }
 
     @Override
-    public int getKmerSize() {
-        return this.dnaKmerSize;
+    public String getSeedId() {
+        return this.seedProt;
+    }
+
+    @Override
+    public RoleMap getRoleMap() {
+        return this.roleMap;
     }
 
 }

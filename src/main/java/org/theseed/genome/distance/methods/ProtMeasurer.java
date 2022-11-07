@@ -1,11 +1,15 @@
 /**
  *
  */
-package org.theseed.genome.distance;
+package org.theseed.genome.distance.methods;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.theseed.genome.Feature;
 import org.theseed.genome.Genome;
 import org.theseed.proteins.Role;
@@ -24,10 +28,10 @@ import org.theseed.sequence.ProteinKmers;
 public class ProtMeasurer extends Measurer {
 
     // FIELDS
+    /** logging facility */
+    protected static Logger log = LoggerFactory.getLogger(ProtMeasurer.class);
     /** map of role IDs to protein kmer lists */
-    private HashMap<String, Collection<ProteinKmers>> roleKmers;
-    /** number of distinct roles in this genome */
-    private int roleCount;
+    private Map<String, Collection<ProteinKmers>> roleKmers;
     /** map of useful roles */
     private static RoleMap roleMap;
 
@@ -95,10 +99,18 @@ public class ProtMeasurer extends Measurer {
      */
     public ProtMeasurer(Genome genome) {
         super(genome);
-        this.roleCount = 0;
-        this.roleKmers = new HashMap<String, Collection<ProteinKmers>>();
-        // Loop through the genome features.
-        for (Feature feat : genome.getPegs()) {
+        this.roleKmers = new ConcurrentHashMap<String, Collection<ProteinKmers>>();
+        // Loop through the genome features, scanning for useful pegs and storing the kmers.
+        genome.getFeatures().parallelStream().forEach(x -> this.scanFeature(x));
+    }
+
+    /**
+     * Analyze a feature, and if it is a peg with useful roles, store its kmers in the map.
+     *
+     * @param feat		feature to analyze
+     */
+    private void scanFeature(Feature feat) {
+        if (feat.getType().contentEquals("CDS")) {
             // Find any useful roles for this feature.
             Collection<Role> featRoles = feat.getUsefulRoles(roleMap);
             if (featRoles.size() > 0) {
@@ -106,17 +118,10 @@ public class ProtMeasurer extends Measurer {
                 ProteinKmers kmerObject = new ProteinKmers(feat.getProteinTranslation());
                 // Loop through the feature's roles, adding them to the hash.
                 for (Role role : feat.getUsefulRoles(roleMap)) {
-                    String roleId = role.getId();
-                    if (! roleKmers.containsKey(roleId)) {
-                        // Here we have a new role.
-                        Collection<ProteinKmers> list = new ArrayList<ProteinKmers>(5);
+                    Collection<ProteinKmers> list = this.roleKmers.computeIfAbsent(role.getId(),
+                            x -> new ArrayList<ProteinKmers>(5));
+                    synchronized(list) {
                         list.add(kmerObject);
-                        roleKmers.put(roleId, list);
-                        this.roleCount++;
-                    } else {
-                        // Here we have an existing role, so add these kmers to the role's
-                        // collection.
-                        roleKmers.get(roleId).add(kmerObject);
                     }
                 }
             }
@@ -151,7 +156,7 @@ public class ProtMeasurer extends Measurer {
         Accumulator accum = this.roleKmers.keySet().parallelStream()
                 .collect(Accumulator::new, (x, r) -> this.processRole(actual, x, r),
                         (x1,x2) -> x1.merge(x2));
-        double retVal = accum.percent(this.roleCount, actual.roleCount);
+        double retVal = accum.percent(this.roleKmers.size(), actual.roleKmers.size());
         return retVal;
     }
 

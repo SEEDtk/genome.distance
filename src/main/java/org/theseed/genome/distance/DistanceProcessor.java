@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.genome.Genome;
 import org.theseed.genome.GenomeDirectory;
+import org.theseed.genome.distance.methods.ProtMeasurer;
 import org.theseed.proteins.RoleMap;
 import org.theseed.proteins.RoleScanner;
 import org.theseed.utils.BaseProcessor;

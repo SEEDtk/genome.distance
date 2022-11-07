@@ -10,6 +10,7 @@ import java.io.IOException;
 
 import org.theseed.genome.Genome;
 import org.theseed.genome.GenomeDirectory;
+import org.theseed.genome.distance.methods.ProtMeasurer;
 import org.theseed.proteins.RoleMap;
 import org.theseed.proteins.RoleScanner;
 

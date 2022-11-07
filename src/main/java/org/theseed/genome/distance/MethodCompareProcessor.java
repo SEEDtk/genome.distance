@@ -25,6 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.counters.QualityCountMap;
 import org.theseed.genome.Genome;
+import org.theseed.genome.distance.methods.Measurer;
+import org.theseed.genome.distance.methods.ProtMeasurer;
 import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.proteins.RoleMap;
