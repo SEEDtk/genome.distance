@@ -10,7 +10,6 @@ import org.theseed.utils.BaseProcessor;
  *
  * build		create or add to a genome minHash database
  * find			query a genome minHash database
- * compare		compare genomes and compute distance based on annotated protein kmers
  * scan			create a role database of the roles in a directory of genomes
  * genomes		compare genomes and compute distance based on DNA kmers
  * mash			compare genomes and compute distance based on minHash
@@ -18,10 +17,7 @@ import org.theseed.utils.BaseProcessor;
  * sketches		convert proteins into signatures (sketches)
  * tune			test different stage and bucket sizes for a protein minHash
  * sig			find protein signatures between genome groups
- * distTable	compute distances for genome pairs
  * methods		compute distances using multiple methods
- * outlierChk	analyze the outlier report from "seqTest"
- * mCompare		compare the performance of close-genome methods
  *
  */
 public class App
@@ -39,9 +35,6 @@ public class App
             break;
         case "find" :
             processor = new FindProcessor();
-            break;
-        case "compare" :
-            processor = new DistanceProcessor();
             break;
         case "scan" :
             processor = new RoleScanningProcessor();
@@ -66,15 +59,6 @@ public class App
             break;
         case "sig" :
             processor = new SignatureProcessor();
-            break;
-        case "distTable" :
-            processor = new DistanceTableProcessor();
-            break;
-        case "outlierChk" :
-            processor = new OutlierCheckProcessor();
-            break;
-        case "mCompare" :
-            processor = new MethodCompareProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
