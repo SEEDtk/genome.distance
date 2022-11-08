@@ -6,6 +6,7 @@ package org.theseed.genome.distance.methods;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -13,6 +14,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.theseed.genome.Genome;
+import org.theseed.p3api.P3Genome;
 import org.theseed.proteins.RoleMap;
 import org.theseed.utils.ParseFailureException;
 
@@ -27,55 +29,71 @@ import org.theseed.utils.ParseFailureException;
  * @author Bruce Parrello
  *
  */
-public abstract class MethodDescriptor {
+public abstract class DistanceMethod {
 
     // FIELDS
     /** logging facility */
-    protected static Logger log = LoggerFactory.getLogger(MethodDescriptor.class);
+    protected static Logger log = LoggerFactory.getLogger(DistanceMethod.class);
     /** role definition map */
-    private static RoleMap roleMap;
+    protected static RoleMap roleMap;
+    /** name of this method */
+    private String methodName;
 
     /**
      * This enum represents the method type.
      */
     public enum Type {
-        /** seed protein kmer distance */
-        SEED {
-            @Override
-            public MethodDescriptor create() {
-                // TODO code for create SEED
-                return null;
-            }
-        },
         /** protein-role comparison */
         PROTEIN {
             @Override
-            public MethodDescriptor create() {
-                // TODO code for create PROTEIN
-                return null;
+            public DistanceMethod create() {
+                return new ProteinDistanceMethod();
+            }
+        },
+        /** role profile comparison */
+        PROFILE {
+            @Override
+            public DistanceMethod create() {
+                return new ProfileDistanceMethod();
             }
         },
         /** whole-genome DNA kmer distance */
         DNA {
             @Override
-            public MethodDescriptor create() {
-                // TODO code for create DNA
-                return null;
+            public DistanceMethod create() {
+                return new DnaDistanceMethod();
             }
         },
         /** SSU kmer distance */
         SSU {
             @Override
-            public MethodDescriptor create() {
-                // TODO code for create SSU
-                return null;
+            public DistanceMethod create() {
+                return new SsuDistanceMethod();
             }
         };
 
         /**
          * @return a method descriptor of this type
          */
-        public abstract MethodDescriptor create();
+        public abstract DistanceMethod create();
+    }
+
+    /**
+     * Compute a distance method from a type name.
+     *
+     * @param type	method type name
+     *
+     * @throws ParseFailureException
+     */
+    public static DistanceMethod create(String type) throws ParseFailureException {
+        DistanceMethod retVal;
+        try {
+            Type t = Type.valueOf(type.toUpperCase());
+            retVal = t.create();
+        } catch (IllegalArgumentException e) {
+            throw new ParseFailureException("Invalid distance method type " + type + ".");
+        }
+        return retVal;
     }
 
     /**
@@ -93,11 +111,32 @@ public abstract class MethodDescriptor {
     }
 
     /**
+     * Create a measurer that uses this method for a specified genome.  This public method
+     * emits useful tracing information.
+     *
+     * @param genome	genome to parse into measurement data
+     *
+     * @return a measurer for a specified genome
+     */
+    public Measurer getMeasurer(Genome genome) {
+        long start = System.currentTimeMillis();
+        log.info("Processing method {} for genome {}.", this, genome);
+        Measurer retVal = this.setupGenome(genome);
+        if (log.isInfoEnabled()) {
+            var duration = Duration.ofMillis(System.currentTimeMillis() - start);
+            log.info("{} to process genome of length {}.", duration, genome.getLength());
+        }
+        return retVal;
+    }
+
+    /**
      * Create a measurer for a specific genome that uses this method.
      *
      * @param genome	genome to parse into measurement data
+     *
+     * @return the created measurer
      */
-    public abstract Measurer getMeasurer(Genome genome);
+    protected abstract Measurer setupGenome(Genome genome);
 
     /**
      * Parse the parameter string for this method to extract its tuning parameters.  The parameters are
@@ -110,6 +149,7 @@ public abstract class MethodDescriptor {
      * @throws ParseFailureException
      */
     public void parseParmString(String parse) throws IOException, ParseFailureException {
+        // Build the keyword map.
         Map<String, String> keywords = new TreeMap<String, String>();
         String[] parms = StringUtils.split(parse);
         for (String parm : parms) {
@@ -118,15 +158,21 @@ public abstract class MethodDescriptor {
                 throw new ParseFailureException("Invalid keyword string \"" + parm + "\" in measurement method parameters.");
             keywords.put(StringUtils.substring(parm, 0, sep), StringUtils.substring(parm, sep+1));
         }
+        // Ask the subclass to process the parameters.
         this.parseParms(keywords);
+        // Now save the method name.
+        this.methodName = this.getName();
     }
 
     /**
      * Parse the parameters for this measurement method.
      *
      * @param keywords	key-value pair mapping for the method parameters
+     *
+     * @throws ParseFailureException
+     * @throws IOException
      */
-    protected abstract void parseParms(Map<String, String> keywords);
+    protected abstract void parseParms(Map<String, String> keywords) throws ParseFailureException, IOException;
 
     /**
      * Compare two genomes.  In this case the first genome has an existing measurer and the second does
@@ -175,6 +221,74 @@ public abstract class MethodDescriptor {
             if (roleObjects.isEmpty())
                 throw new ParseFailureException("Role " + role + " not found in master role map.");
             retVal.putAll(roleObjects);
+        }
+        return retVal;
+    }
+
+    /**
+     * @return the detail level required for genomes using this method
+     */
+    public abstract P3Genome.Details getDetailLevel();
+
+    /**
+     * @return the abbreviated name of this method (suitable for column headings and tracing)
+     */
+    public abstract String getName();
+
+    @Override
+    public String toString() {
+        String retVal;
+        if (this.methodName == null)
+            retVal = this.getName();
+        else
+            retVal = this.methodName;
+        return retVal;
+    }
+
+    /**
+     * This is a utility method for processing an integer keyword.
+     *
+     * @param keywords		keyword map
+     * @param key			keyword name
+     * @param defaultVal	default value
+     *
+     * @return the integer value
+     *
+     * @throws ParseFailureException
+     */
+    public int getIntValue(Map<String, String> keywords, String key, int defaultVal) throws ParseFailureException {
+        String val = keywords.get(key);
+        int retVal;
+        if (val == null)
+            retVal = defaultVal;
+        else try {
+            retVal = Integer.valueOf(val);
+        } catch (NumberFormatException e) {
+            throw new ParseFailureException("Invalid numeric for keyword " + key + ".");
+        }
+        return retVal;
+    }
+
+    /**
+     * This is a utility method for processing a floating-point keyword.
+     *
+     * @param keywords		keyword map
+     * @param key			keyword name
+     * @param defaultVal	default value
+     *
+     * @return the integer value
+     *
+     * @throws ParseFailureException
+     */
+    public double getDoubleValue(Map<String, String> keywords, String key, double defaultVal) throws ParseFailureException {
+        String val = keywords.get(key);
+        double retVal;
+        if (val == null)
+            retVal = defaultVal;
+        else try {
+            retVal = Double.valueOf(val);
+        } catch (NumberFormatException e) {
+            throw new ParseFailureException("Invalid numeric for keyword " + key + ".");
         }
         return retVal;
     }
