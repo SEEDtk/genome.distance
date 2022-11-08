@@ -111,7 +111,7 @@ public class ProfileDistanceMethod extends DistanceMethod {
         double[] v1 = ((ProfileDistanceMethod.Analysis) measurer).profile;
         double[] v2 = ((ProfileDistanceMethod.Analysis) other).profile;
         // Dot product the two vectors.
-        double retVal = IntStream.range(0, this.roleCount).mapToDouble(i -> v1[i] * v2[i]).sum();
+        double retVal = 1.0 - IntStream.range(0, this.roleCount).mapToDouble(i -> v1[i] * v2[i]).sum();
         return retVal;
     }
 

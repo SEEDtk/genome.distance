@@ -136,39 +136,29 @@ public class ProteinDistanceMethod extends DistanceMethod {
     public double getDistance(Measurer measurer, Measurer other) {
         ProteinDistanceMethod.Analysis m1 = (ProteinDistanceMethod.Analysis) measurer;
         ProteinDistanceMethod.Analysis m2 = (ProteinDistanceMethod.Analysis) other;
-        // Process all the roles, accumulating the distances.
-        double retVal = this.protRoles.keySet().parallelStream()
-                .mapToDouble(x -> this.roleDistance(m1, m2, x)).sum();
+        // Process all the roles, accumulating the distances.  Note the distance between a missing role and a present
+        // role is always 1.
+        int count = 0;
+        double retVal = 0.0;
+        for (String roleId : this.protRoles.keySet()) {
+            ProteinKmers k1 = m1.kmerMap.get(roleId);
+            ProteinKmers k2 = m2.kmerMap.get(roleId);
+            if (k1 == null) {
+                if (k2 != null) {
+                    retVal += 1.0;
+                    count++;
+                }
+            } else if (k2 == null) {
+                retVal += 1.0;
+                count++;
+            } else {
+                retVal += k1.distance(k2);
+                count++;
+            }
+        }
         // Divide by the number of roles.
         if (retVal > 0.0)
-            retVal /= this.protRoles.size();
-        return retVal;
-    }
-
-    /**
-     * Compute the distance between the two roles for the genomes being measured.  Note
-     * that if the role is not common between the genomes, the distance is automatically
-     * 1.0 (the maximum).
-     *
-     * @param m1	analysis of the first genome
-     * @param m2	analysis of the second genome
-     * @param role	ID of the target role
-     *
-     * @return the distance between the genomes for that role
-     */
-    private double roleDistance(Analysis m1, Analysis m2, String role) {
-        ProteinKmers k1 = m1.kmerMap.get(role);
-        ProteinKmers k2 = m2.kmerMap.get(role);
-        double retVal;
-        if (k1 == null) {
-            if (k2 != null)
-                retVal = 1.0;
-            else
-                retVal = 0.0;
-        } else if (k2 == null)
-            retVal = 1.0;
-        else
-            retVal = k1.distance(k2);
+            retVal /= count;
         return retVal;
     }
 
