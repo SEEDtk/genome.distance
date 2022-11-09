@@ -10,8 +10,12 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.math3.stat.correlation.KendallsCorrelation;
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
+import org.apache.commons.math3.stat.correlation.SpearmansCorrelation;
 import org.apache.commons.text.TextStringBuilder;
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
@@ -53,6 +57,7 @@ import org.theseed.utils.ParseFailureException;
  * -2	index or name of the input column containing the second genome ID (default "2")
  *
  * --source			genome source type (default DIR)
+ * --stats			name of an output file for statistics (default "stats.tbl" in the current directory)
  *
  * @author Bruce Parrello
  *
@@ -72,6 +77,8 @@ public class MethodTableProcessor extends BasePipeProcessor {
     private String genomeId1;
     /** name of the first genome in the current pair */
     private String genomeName1;
+    /** list of distance sets */
+    private List<double[]> distanceList;
 
     // COMMAND-LINE OPTIONS
 
@@ -88,6 +95,10 @@ public class MethodTableProcessor extends BasePipeProcessor {
     @Option(name = "--col2", aliases = { "-2", "--c2" }, metaVar = "genome_id",
             usage = "index (1-based) or name of the input column containing the second genome ID")
     private String col2Name;
+
+    /** name of an output file for the correlation statistics */
+    @Option(name = "--stats", metaVar = "correlations.tbl", usage = "name of the output file for correlation statistics")
+    private File statsFile;
 
     /** method list file */
     @Argument(index = 0, metaVar = "methods.tbl", usage = "name of method list file", required = true)
@@ -106,6 +117,7 @@ public class MethodTableProcessor extends BasePipeProcessor {
         this.sourceType = GenomeSource.Type.DIR;
         this.col1Name = "1";
         this.col2Name = "2";
+        this.statsFile = new File("stats.tbl");
     }
 
     @Override
@@ -166,13 +178,16 @@ public class MethodTableProcessor extends BasePipeProcessor {
             log.info("Initializing method cache.");
             // Get the number of methods.
             final int nMethods = this.methods.size();
-            // We will store each pair's distances in here.
-            double[] distances = new double[nMethods];
+            // We will store each pair's distances in here for the correlation statistics later.
+            this.distanceList = new ArrayList<double[]>(this.pairs.size());
+            // Cache the first pair's first genome.
             this.genomeId1 = this.pairs.get(0).getId1();
             List<Measurer> measurers = this.getMeasurers(genomeId1);
+            // Now we loop through the pairs.
             log.info("Processing pairs.");
             int pCount = 0;
             for (var pair : this.pairs) {
+                double[] distances = new double[nMethods];
                 String id1 = pair.getId1();
                 if (! id1.contentEquals(genomeId1)) {
                     // Here we have a new first genome and we need to re-cache the measurers.
@@ -187,6 +202,8 @@ public class MethodTableProcessor extends BasePipeProcessor {
                     // Store the distance.
                     distances[i] = method.getDistance(measurers.get(i), genome);
                 }
+                // Save the distances.
+                this.distanceList.add(distances);
                 // Build an output line.
                 TextStringBuilder printLine = new TextStringBuilder(150);
                 printLine.append("%s\t%s\t%s\t%s", this.genomeId1, this.genomeName1, genomeId2, genome.getName());
@@ -198,7 +215,57 @@ public class MethodTableProcessor extends BasePipeProcessor {
                 pCount++;
                 log.info("{} pairs processed.", pCount);
             }
+            // Now we compute the statistics.
+            try (PrintWriter statWriter = new PrintWriter(this.statsFile)) {
+                this.writeStatistics(statWriter);
+            }
         }
+    }
+
+    /**
+     * Write the correlation statistics for the method pairs to the specified output.
+     *
+     * @param statWriter	writer to contain the correlation report
+     */
+    private void writeStatistics(PrintWriter statWriter) {
+        final int n = this.methods.size();
+        final int nPairs = this.distanceList.size();
+        // These arrays will hold the distances.
+        double[] dist1 = new double[nPairs];
+        double[] dist2 = new double[nPairs];
+        // Create the correlation calculators.
+        var pearson = new PearsonsCorrelation();
+        var kendall = new KendallsCorrelation();
+        var spearman = new SpearmansCorrelation();
+        // Write the header line.
+        statWriter.println("method1\tmethod2\tPearson\tKendall\tSpearman");
+        // Loop through every pair of methods.
+        for (int i = 0; i < n; i++) {
+            String method1 = this.methods.get(i).toString();
+            // Form the first method's distance array.
+            this.copyDistances(i, dist1);
+            for (int j = i+1; j < n; j++) {
+                String method2 = this.methods.get(j).toString();
+                // Form the second method's distance array.
+                this.copyDistances(j, dist2);
+                // Compute the correlations.
+                var p = pearson.correlation(dist1, dist2);
+                var k = kendall.correlation(dist1, dist2);
+                var s = spearman.correlation(dist1, dist2);
+                // Write them out.
+                statWriter.format("%s\t%s\t%8.4f\t%8.4f\t%8.4f%n", method1, method2, p, k, s);
+            }
+        }
+    }
+
+    /**
+     * Copy the distances from the specified method to the specified array.
+     *
+     * @param i			index of the source method
+     * @param dist		target array to build
+     */
+    private void copyDistances(int i, double[] dist) {
+        IntStream.range(0, dist.length).forEach(k -> dist[k] = this.distanceList.get(k)[i]);
     }
 
     /**
