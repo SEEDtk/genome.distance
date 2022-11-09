@@ -4,12 +4,14 @@
 package org.theseed.genome.distance.methods;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-
+import java.util.SortedSet;
+import java.util.TreeSet;
 import org.theseed.counters.CountMap;
 
 /**
@@ -201,6 +203,22 @@ public class GenomePairList implements Iterable<GenomePairList.Pair> {
      */
     public Pair get(int i) {
         return this.pairs.get(i);
+    }
+
+    /**
+     * @return a set of the IDs in this pair list
+     */
+    public SortedSet<String> getIdSet() {
+        SortedSet<String> retVal = new TreeSet<String>();
+        // We have to figure out where the pairs are.
+        Collection<Pair> pairings = this.pairSet;
+        if (pairings == null) pairings = this.pairs;
+        // Loop through the pairs.
+        for (var pair : pairings) {
+            retVal.add(pair.id1);
+            retVal.add(pair.id2);
+        }
+        return retVal;
     }
 
 }
