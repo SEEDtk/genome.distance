@@ -125,4 +125,8 @@ public class ProfileDistanceMethod extends DistanceMethod {
         return String.format("Profile_%s", this.roleSource);
     }
 
+    @Override
+    public void close() throws Exception {
+    }
+
 }

@@ -29,7 +29,7 @@ import org.theseed.utils.ParseFailureException;
  * @author Bruce Parrello
  *
  */
-public abstract class DistanceMethod {
+public abstract class DistanceMethod implements AutoCloseable {
 
     // FIELDS
     /** logging facility */
@@ -50,6 +50,13 @@ public abstract class DistanceMethod {
                 return new ProteinDistanceMethod();
             }
         },
+        /** dna-role comparison */
+        GENE {
+            @Override
+            public DistanceMethod create() {
+                return new GeneDistanceMethod();
+            }
+        },
         /** role profile comparison */
         PROFILE {
             @Override
@@ -64,13 +71,32 @@ public abstract class DistanceMethod {
                 return new DnaDistanceMethod();
             }
         },
+        /** average nucleotide identity */
+        ANI {
+            @Override
+            public DistanceMethod create() {
+                return new AniDistanceMethod();
+            }
+        },
         /** SSU kmer distance */
         SSU {
             @Override
             public DistanceMethod create() {
                 return new SsuDistanceMethod();
             }
-        };
+        },
+        TAXONOMY {
+            @Override
+            public DistanceMethod create() {
+                return new TaxonDistanceMethod();
+            }
+        }, FILE {
+            @Override
+            public DistanceMethod create() {
+                return new FileDistanceMethod();
+            }
+        }
+        ;
 
         /**
          * @return a method descriptor of this type
@@ -242,6 +268,31 @@ public abstract class DistanceMethod {
             retVal = this.getName();
         else
             retVal = this.methodName;
+        return retVal;
+    }
+
+    /**
+     * This is a utility method for processing a boolean (Y/N) keyword.
+     *
+     * @param keywords			keyword map
+     * @param key				keyword name
+     * @param defaultVal		default value
+     *
+     * @return the boolean value
+     *
+     * @throws ParseFailureException
+     */
+    public boolean getBoolValue(Map<String, String> keywords, String key, boolean defaultVal) throws ParseFailureException {
+        String val = keywords.get(key);
+        boolean retVal;
+        if (val == null)
+            retVal = defaultVal;
+        else if (val.contentEquals("Y"))
+            retVal = true;
+        else if (val.contentEquals("N"))
+            retVal = false;
+        else
+            throw new ParseFailureException("Invalid Y/N flag for keyword " + key + ".");
         return retVal;
     }
 

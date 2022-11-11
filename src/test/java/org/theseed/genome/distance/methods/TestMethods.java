@@ -30,7 +30,7 @@ public class TestMethods {
     /** main genome ID */
     public static final String BASE_GENOME = "1062.102";
     /** list of method names */
-    public static final String[] METHODS = { "PROFILE", "DNA", "PROTEIN", "PROTEIN", "PROTEIN", "SSU" };
+    public static final String[] METHODS = { "PROFILE", "DNA", "PROTEIN", "PROTEIN", "PROTEIN", "SSU", "ANI", "GENE", "TAXONOMY" };
     /** list of parameter strings */
     public static final String[] PARMS = {
             /* PROFILE */	"roles=data/roles.to.use",
@@ -38,7 +38,10 @@ public class TestMethods {
             /* PROTEIN */	"",
             /* PROTEIN */	"roles=PolyNucl,DnaDireRnaPolyBeta3 K=8",
             /* PROTEIN */	"roles=PhenTrnaSyntAlph",
-            /* SSU */		"K=20"
+            /* SSU */		"K=20",
+            /* ANI */		"",
+            /* GENE */		"",
+            /* TAXONOMY */	""
         };
 
     @Test

@@ -7,8 +7,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -27,6 +29,7 @@ import org.theseed.genome.distance.methods.GenomePairList;
 import org.theseed.genome.distance.methods.Measurer;
 import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.io.TabbedLineReader;
+import org.theseed.reports.StringTupleSort;
 import org.theseed.utils.BasePipeProcessor;
 import org.theseed.utils.ParseFailureException;
 
@@ -165,60 +168,71 @@ public class MethodTableProcessor extends BasePipeProcessor {
 
     @Override
     protected void runPipeline(TabbedLineReader inputStream, PrintWriter writer) throws Exception {
-        // One last validation step:  verify all the genomes are found in the source.
-        this.checkGenomes();
-        // Prepare the pair list for iteration.
-        log.info("Preparing the pair list.");
-        this.pairs.prepare();
-        // Write the header line.
-        writer.println("id1\tname1\tid2\tname2\t" +
-                this.methods.stream().map(x -> x.toString()).collect(Collectors.joining("\t")));
-        // Insure we have at least one pair.
-        if (this.pairs.size() > 0) {
-            log.info("Initializing method cache.");
-            // Get the number of methods.
-            final int nMethods = this.methods.size();
-            // We will store each pair's distances in here for the correlation statistics later.
-            this.distanceList = new ArrayList<double[]>(this.pairs.size());
-            // Cache the first pair's first genome.
-            this.genomeId1 = this.pairs.get(0).getId1();
-            List<Measurer> measurers = this.getMeasurers(genomeId1);
-            // Now we loop through the pairs.
-            log.info("Processing pairs.");
-            int pCount = 0;
-            for (var pair : this.pairs) {
-                double[] distances = new double[nMethods];
-                String id1 = pair.getId1();
-                if (! id1.contentEquals(genomeId1)) {
-                    // Here we have a new first genome and we need to re-cache the measurers.
-                    this.genomeId1 = id1;
-                    measurers = this.getMeasurers(genomeId1);
+        try {
+            // One last validation step:  verify all the genomes are found in the source.
+            this.checkGenomes();
+            // Prepare the pair list for iteration.
+            log.info("Preparing the pair list.");
+            this.pairs.prepare();
+            // Write the header line.
+            writer.println("id1\tname1\tid2\tname2\t" +
+                    this.methods.stream().map(x -> x.toString()).collect(Collectors.joining("\t")));
+            // Insure we have at least one pair.
+            if (this.pairs.size() > 0) {
+                log.info("Initializing method cache.");
+                // Get the number of methods.
+                final int nMethods = this.methods.size();
+                // We will store each pair's distances in here for the correlation statistics later.
+                this.distanceList = new ArrayList<double[]>(this.pairs.size());
+                // Cache the first pair's first genome.
+                this.genomeId1 = this.pairs.get(0).getId1();
+                List<Measurer> measurers = this.getMeasurers(genomeId1);
+                // Now we loop through the pairs.
+                log.info("Processing pairs.");
+                int pCount = 0;
+                long start = System.currentTimeMillis();
+                for (var pair : this.pairs) {
+                    double[] distances = new double[nMethods];
+                    String id1 = pair.getId1();
+                    if (! id1.contentEquals(genomeId1)) {
+                        // Here we have a new first genome and we need to re-cache the measurers.
+                        this.genomeId1 = id1;
+                        measurers = this.getMeasurers(genomeId1);
+                    }
+                    // Get the second genome.
+                    String genomeId2 = pair.getId2();
+                    Genome genome = this.genomes.getGenome(genomeId2);
+                    for (int i = 0; i < nMethods; i++) {
+                        DistanceMethod method = this.methods.get(i);
+                        // Store the distance.
+                        distances[i] = method.getDistance(measurers.get(i), genome);
+                    }
+                    // Save the distances.
+                    this.distanceList.add(distances);
+                    // Build an output line.
+                    TextStringBuilder printLine = new TextStringBuilder(150);
+                    printLine.append("%s\t%s\t%s\t%s", this.genomeId1, this.genomeName1, genomeId2, genome.getName());
+                    for (double distance : distances)
+                        printLine.append("\t%8.4f", distance);
+                    // Write the line.
+                    writer.println(printLine);
+                    writer.flush();
+                    pCount++;
+                    if (log.isInfoEnabled()) {
+                        Duration remain = Duration.ofMillis((System.currentTimeMillis() - start) * (this.pairs.size() - pCount) / pCount);
+                        log.info("{} pairs processed. {} remaining.", pCount, remain);
+                    }
                 }
-                // Get the second genome.
-                String genomeId2 = pair.getId2();
-                Genome genome = this.genomes.getGenome(genomeId2);
-                for (int i = 0; i < nMethods; i++) {
-                    DistanceMethod method = this.methods.get(i);
-                    // Store the distance.
-                    distances[i] = method.getDistance(measurers.get(i), genome);
+                // Now we compute the statistics.
+                try (PrintWriter statWriter = new PrintWriter(this.statsFile)) {
+                    this.writeStatistics(statWriter);
                 }
-                // Save the distances.
-                this.distanceList.add(distances);
-                // Build an output line.
-                TextStringBuilder printLine = new TextStringBuilder(150);
-                printLine.append("%s\t%s\t%s\t%s", this.genomeId1, this.genomeName1, genomeId2, genome.getName());
-                for (double distance : distances)
-                    printLine.append("\t%8.4f", distance);
-                // Write the line.
-                writer.println(printLine);
-                writer.flush();
-                pCount++;
-                log.info("{} pairs processed.", pCount);
             }
-            // Now we compute the statistics.
-            try (PrintWriter statWriter = new PrintWriter(this.statsFile)) {
-                this.writeStatistics(statWriter);
-            }
+        } finally {
+            // Here we close the methods to do any needed cleanup (e.g. temporary directories used by BLAST).
+            log.info("Cleaning up method storage.");
+            for (var method : this.methods)
+                method.close();
         }
     }
 
@@ -239,6 +253,8 @@ public class MethodTableProcessor extends BasePipeProcessor {
         var spearman = new SpearmansCorrelation();
         // Write the header line.
         statWriter.println("method1\tmethod2\tPearson\tKendall\tSpearman");
+        // We generate each correlation line twice, then sort them.
+        var sorter = new TreeMap<String[], String>(new StringTupleSort());
         // Loop through every pair of methods.
         for (int i = 0; i < n; i++) {
             String method1 = this.methods.get(i).toString();
@@ -252,10 +268,15 @@ public class MethodTableProcessor extends BasePipeProcessor {
                 var p = pearson.correlation(dist1, dist2);
                 var k = kendall.correlation(dist1, dist2);
                 var s = spearman.correlation(dist1, dist2);
-                // Write them out.
-                statWriter.format("%s\t%s\t%8.4f\t%8.4f\t%8.4f%n", method1, method2, p, k, s);
+                // Format a line and store it in the sorter for both directions of the comparison.
+                String line = String.format("%s\t%s\t%8.4f\t%8.4f\t%8.4f", method1, method2, p, k, s);
+                sorter.put(new String[] { method1,  method2 }, line);
+                line = String.format("%s\t%s\t%8.4f\t%8.4f\t%8.4f", method2, method1, p, k, s);
+                sorter.put(new String[] { method2,  method1 }, line);
             }
         }
+        // Unspool the print lines from the sorter.
+        sorter.values().stream().forEach(x -> statWriter.println(x));
     }
 
     /**

@@ -108,4 +108,8 @@ public class DnaDistanceMethod extends DistanceMethod {
         return true;
     }
 
+    @Override
+    public void close() throws Exception {
+    }
+
 }

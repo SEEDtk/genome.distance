@@ -88,4 +88,8 @@ public class SsuDistanceMethod extends DistanceMethod {
         return String.format("SSU_k%d", this.kSize);
     }
 
+    @Override
+    public void close() throws Exception {
+    }
+
 }
