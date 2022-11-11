@@ -27,6 +27,7 @@ import org.theseed.genome.Genome;
 import org.theseed.genome.distance.methods.DistanceMethod;
 import org.theseed.genome.distance.methods.GenomePairList;
 import org.theseed.genome.distance.methods.Measurer;
+import org.theseed.genome.distance.methods.TaxonDistanceMethod;
 import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.reports.StringTupleSort;
@@ -80,6 +81,10 @@ public class MethodTableProcessor extends BasePipeProcessor {
     private String genomeId1;
     /** name of the first genome in the current pair */
     private String genomeName1;
+    /** taxonomic analysis of the first genome in the current pair */
+    private TaxonDistanceMethod.Analysis taxAnalysis1;
+    /** taxonomic analyzer */
+    private TaxonDistanceMethod taxMethod;
     /** list of distance sets */
     private List<double[]> distanceList;
 
@@ -174,10 +179,11 @@ public class MethodTableProcessor extends BasePipeProcessor {
             // Prepare the pair list for iteration.
             log.info("Preparing the pair list.");
             this.pairs.prepare();
+            this.taxMethod = new TaxonDistanceMethod();
             // Write the header line.
-            writer.println("id1\tname1\tid2\tname2\t" +
+            writer.println("id1\tname1\tid2\tname2\ttax_group\t" +
                     this.methods.stream().map(x -> x.toString()).collect(Collectors.joining("\t")));
-            // Insure we have at least one pair.
+            // Insure we have at least one pair before we continue.
             if (this.pairs.size() > 0) {
                 log.info("Initializing method cache.");
                 // Get the number of methods.
@@ -209,9 +215,12 @@ public class MethodTableProcessor extends BasePipeProcessor {
                     }
                     // Save the distances.
                     this.distanceList.add(distances);
+                    // Compute the taxonomic grouping.
+                    final var taxAnalysis2 = this.taxMethod.new Analysis(genome);
+                    String taxGroup = this.taxMethod.getGroupingLevel(taxAnalysis1, taxAnalysis2);
                     // Build an output line.
                     TextStringBuilder printLine = new TextStringBuilder(150);
-                    printLine.append("%s\t%s\t%s\t%s", this.genomeId1, this.genomeName1, genomeId2, genome.getName());
+                    printLine.append("%s\t%s\t%s\t%s\t%s", this.genomeId1, this.genomeName1, genomeId2, genome.getName(), taxGroup);
                     for (double distance : distances)
                         printLine.append("\t%8.4f", distance);
                     // Write the line.
@@ -233,6 +242,7 @@ public class MethodTableProcessor extends BasePipeProcessor {
             log.info("Cleaning up method storage.");
             for (var method : this.methods)
                 method.close();
+            this.taxMethod.close();
         }
     }
 
@@ -300,6 +310,7 @@ public class MethodTableProcessor extends BasePipeProcessor {
         List<Measurer> retVal = new ArrayList<Measurer>(this.methods.size());
         Genome genome = this.genomes.getGenome(genomeId);
         this.genomeName1 = genome.getName();
+        this.taxAnalysis1 = this.taxMethod.new Analysis(genome);
         for (var method : this.methods) {
             var measurer = method.getMeasurer(genome);
             retVal.add(measurer);

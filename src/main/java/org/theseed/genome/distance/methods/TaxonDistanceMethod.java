@@ -16,7 +16,7 @@ import org.theseed.p3api.P3Genome;
 import org.theseed.utils.ParseFailureException;
 
 /**
- * This method computes a very crude distance from the taxonomic lineage.  The 9 orthodox taxonomic levels are
+ * This method computes a very crude distance from the taxonomic lineage.  The 7 orthodox taxonomic levels are
  * examined one by one.  The process stops on the first mismatch.  A mismatch on superkingdom is a distance
  * of 1.0.  A mismatch on a lower level is worth half the value of the previous level.
  *
@@ -31,14 +31,14 @@ public class TaxonDistanceMethod extends DistanceMethod {
     /** logging facility */
     protected static Logger log = LoggerFactory.getLogger(TaxonDistanceMethod.class);
     /** ranking list */
-    private static final String[] LEVELS = new String[] { "superkingdom", "phylum", "class", "order", "family", "genus", "species", "strain" };
+    private static final String[] LEVELS = new String[] { "superkingdom", "phylum", "class", "order", "family", "genus", "species" };
     /** value to indicate a missing taxon ID */
     private static final int MISSING = -1;
 
     /**
      * This class contains the lineage data for a distance measure.
      */
-    protected class Analysis extends Measurer {
+    public class Analysis extends Measurer {
 
         /** array of taxon IDs at each level */
         private int[] lineage;
@@ -78,10 +78,48 @@ public class TaxonDistanceMethod extends DistanceMethod {
     public double getDistance(Measurer measurer, Measurer other) {
         TaxonDistanceMethod.Analysis m1 = (TaxonDistanceMethod.Analysis) measurer;
         TaxonDistanceMethod.Analysis m2 = (TaxonDistanceMethod.Analysis) other;
-        double retVal = 0.0;
-        for (int i = 0; retVal == 0 && i < LEVELS.length; i++) {
+        int retVal = getDiffLevel(m1, m2);
+        return (retVal < 0 ? 0.0 : 1.0 / (2 << retVal));
+    }
+
+    /**
+     * Compute the level at which the taxonomies of two genomes disagree.
+     *
+     * @param m1	analysis of first genome
+     * @param m2	analysis of second genome
+     *
+     * @return the index of the difference level, or -1 if the taxonomies are the same species
+     */
+    protected int getDiffLevel(TaxonDistanceMethod.Analysis m1, TaxonDistanceMethod.Analysis m2) {
+        int retVal = -1;
+        for (int i = 0; retVal < 0 && i < LEVELS.length; i++) {
             if (m1.lineage[i] != m2.lineage[i])
-                retVal = 1.0 / (2 << i);
+                retVal = i;
+        }
+        return retVal;
+    }
+
+    /**
+     * This method determines the smallest taxonomic grouping level to which two genomes belong.
+     *
+     * @param m1	taxonomic analysis of first genome
+     * @param m2	taxonomic analysis of second genome
+     *
+     * @return the taxonomic point of agreement between genomes
+     */
+    public String getGroupingLevel(TaxonDistanceMethod.Analysis m1, TaxonDistanceMethod.Analysis m2) {
+        int diffLevel = this.getDiffLevel(m1, m2);
+        String retVal;
+        if (diffLevel == -1) {
+            // Here the genomes were the same across the whole lineage.
+            retVal = LEVELS[LEVELS.length - 1];
+        } else if (diffLevel == 0) {
+            // Here the genomes belong to different superkingdoms.
+            retVal = "cellular organism";
+        } else {
+            // "diffLevel" is the first point where the lineages disagree, so we back up one to get
+            // the group they both belong to.
+            retVal = LEVELS[diffLevel - 1];
         }
         return retVal;
     }
