@@ -18,6 +18,10 @@ import org.theseed.utils.BaseProcessor;
  * tune			test different stage and bucket sizes for a protein minHash
  * sig			find protein signatures between genome groups
  * methods		compute distances using multiple methods
+ * taxCheck		analyze a methods report to determine how each method varies within taxonomic groupings
+ * augment		augment a list of pairings to add more taxonomic grouping examples
+ * pairs		create a list of pairings from a repgen list file
+ * pairMerge	merge pairings from two input files with identical formats
  *
  */
 public class App
@@ -59,6 +63,18 @@ public class App
             break;
         case "sig" :
             processor = new SignatureProcessor();
+            break;
+        case "taxCheck" :
+            processor = new TaxCheckProcessor();
+            break;
+        case "augment" :
+            processor = new AugmentProcessor();
+            break;
+        case "pairs" :
+            processor = new PairCreateProcessor();
+            break;
+        case "pairMerge" :
+            processor = new PairMergeProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);

@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -33,6 +35,7 @@ import org.theseed.io.TabbedLineReader;
 import org.theseed.reports.StringTupleSort;
 import org.theseed.utils.BasePipeProcessor;
 import org.theseed.utils.ParseFailureException;
+import org.theseed.utils.StringPair;
 
 /**
  * This command reads an input file describing genome-comparison methods and runs all the methods on pairs
@@ -51,6 +54,9 @@ import org.theseed.utils.ParseFailureException;
  * The method list file consists of two columns-- a method type and a parameter string.  The parameter
  * string is free-form and dependent on the method type; generally it consists of space-delimited values.
  *
+ * An output file from a previous run can be specified, and if so, the results from the previous run will be used
+ * wherever possible.
+ *
  * The command-line options are as follows:
  *
  * -h	display command-line usage
@@ -62,6 +68,7 @@ import org.theseed.utils.ParseFailureException;
  *
  * --source			genome source type (default DIR)
  * --stats			name of an output file for statistics (default "stats.tbl" in the current directory)
+ * --previous		if specified, the name of a file containing the results of a previous run to be reused
  *
  * @author Bruce Parrello
  *
@@ -87,6 +94,8 @@ public class MethodTableProcessor extends BasePipeProcessor {
     private TaxonDistanceMethod taxMethod;
     /** list of distance sets */
     private List<double[]> distanceList;
+    /** map of previous results */
+    private Map<StringPair, double[]> oldResultMap;
 
     // COMMAND-LINE OPTIONS
 
@@ -108,6 +117,11 @@ public class MethodTableProcessor extends BasePipeProcessor {
     @Option(name = "--stats", metaVar = "correlations.tbl", usage = "name of the output file for correlation statistics")
     private File statsFile;
 
+    /** name of the file containing the previous results */
+    @Option(name = "--previous", metaVar = "distances.old.tbl",
+            usage = "if specified, the name of a file containing previous results that can be re-used")
+    private File previousFile;
+
     /** method list file */
     @Argument(index = 0, metaVar = "methods.tbl", usage = "name of method list file", required = true)
     private File methodFile;
@@ -126,6 +140,7 @@ public class MethodTableProcessor extends BasePipeProcessor {
         this.col1Name = "1";
         this.col2Name = "2";
         this.statsFile = new File("stats.tbl");
+        this.previousFile = null;
     }
 
     @Override
@@ -165,10 +180,49 @@ public class MethodTableProcessor extends BasePipeProcessor {
             }
             log.info("{} methods loaded.", mCount);
         }
+        // Process the previous-results file.
+        if (this.previousFile == null) {
+            log.info("No previous results specified.");
+            this.oldResultMap = null;
+        } else if (! this.previousFile.canRead())
+            throw new FileNotFoundException("Previous-results file " + this.previousFile + " is not found or unreadable.");
+        else {
+            // Here we have previous results to load.  We need to verify that the methods match.
+            try (TabbedLineReader prevStream = new TabbedLineReader(this.previousFile)) {
+                log.info("Validating previous-results file " + this.previousFile + ".");
+                int method0 = prevStream.findField("tax_group") + 1;
+                String[] labels = prevStream.getLabels();
+                final int nMethods = this.methods.size();
+                if (method0 + nMethods != labels.length)
+                    throw new IOException("Previous-results file has the wrong number of columns for this method configuration.");
+                for (int i = 0; i < this.methods.size(); i++) {
+                    if (! labels[i + method0].contentEquals(this.methods.get(i).toString()))
+                        throw new IOException("Method " + i + " does not match previous-results file.");
+                }
+                // Now we know the methods match, so we can read the file.
+                this.oldResultMap = new HashMap<StringPair, double[]>(4000);
+                log.info("Reading previous results.");
+                int id1ColIdx = prevStream.findField("id1");
+                int id2Colidx = prevStream.findField("id2");
+                for (var line : prevStream) {
+                    String id1 = line.get(id1ColIdx);
+                    String id2 = line.get(id2Colidx);
+                    StringPair pair = new StringPair(id1, id2);
+                    double[] distances = new double[nMethods];
+                    for (int i = 0; i < nMethods; i++)
+                        distances[i] = line.getDouble(method0 + i);
+                    this.oldResultMap.put(pair, distances);
+                }
+                log.info("{} old results read into cache.", this.oldResultMap.size());
+            }
+
+        }
         // Connect to the genome source.
         if (! this.inDir.exists())
             throw new FileNotFoundException("Genome source " + this.inDir + " is not found.");
         this.genomes = this.sourceType.create(this.inDir);
+        // Initialize the taxonomic distance method.
+        this.taxMethod = new TaxonDistanceMethod();
     }
 
     @Override
@@ -179,7 +233,6 @@ public class MethodTableProcessor extends BasePipeProcessor {
             // Prepare the pair list for iteration.
             log.info("Preparing the pair list.");
             this.pairs.prepare();
-            this.taxMethod = new TaxonDistanceMethod();
             // Write the header line.
             writer.println("id1\tname1\tid2\tname2\ttax_group\t" +
                     this.methods.stream().map(x -> x.toString()).collect(Collectors.joining("\t")));
@@ -208,10 +261,16 @@ public class MethodTableProcessor extends BasePipeProcessor {
                     // Get the second genome.
                     String genomeId2 = pair.getId2();
                     Genome genome = this.genomes.getGenome(genomeId2);
-                    for (int i = 0; i < nMethods; i++) {
-                        DistanceMethod method = this.methods.get(i);
-                        // Store the distance.
-                        distances[i] = method.getDistance(measurers.get(i), genome);
+                    // Check for a previous result.
+                    boolean oldFound = false;
+                    if (this.oldResultMap != null)
+                        oldFound = this.checkPrevious(this.genomeId1, genomeId2, distances);
+                    if (! oldFound) {
+                        for (int i = 0; i < nMethods; i++) {
+                            DistanceMethod method = this.methods.get(i);
+                            // Store the distance.
+                            distances[i] = method.getDistance(measurers.get(i), genome);
+                        }
                     }
                     // Save the distances.
                     this.distanceList.add(distances);
@@ -244,6 +303,30 @@ public class MethodTableProcessor extends BasePipeProcessor {
                 method.close();
             this.taxMethod.close();
         }
+    }
+
+    /**
+     * Check for a previous result in the cache, and use it if one is there.
+     *
+     * @param id1			first genome ID
+     * @param id2			second genome ID
+     * @param distances		output array for distances
+     *
+     * @return TRUE if an old result was found, else FALSE
+     */
+    private boolean checkPrevious(String id1, String id2, double[] distances) {
+        boolean retVal;
+        // Create a string pair.
+        var pair = new StringPair(id1, id2);
+        double[] oldDistances = this.oldResultMap.get(pair);
+        if (oldDistances == null)
+            retVal = false;
+        else {
+            // Copy the cached results to the provided result array.
+            System.arraycopy(oldDistances, 0, distances, 0, distances.length);
+            retVal = true;
+        }
+        return retVal;
     }
 
     /**

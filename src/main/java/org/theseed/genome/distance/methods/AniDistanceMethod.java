@@ -164,13 +164,13 @@ public class AniDistanceMethod extends DistanceMethod {
         // Get the tuning parameters.
         this.chunkSize = this.getIntValue(keywords, "chunk", 1020);
         this.minIdentity = this.getDoubleValue(keywords, "minI", 30.0);
-        this.minMatchLen = (int) (this.getDoubleValue(keywords, "minM", 35.0) * this.chunkSize);
+        this.minMatchLen = (int) (this.getDoubleValue(keywords, "minM", 35.0) * this.chunkSize / 100);
         // Create the temporary directory.
         this.tempDir = Files.createTempDirectory("aniB").toFile();
         log.info("Temporary ANI directory is {}.", this.tempDir);
         // Create the blast parameters.
-        this.blastParms = new BlastParms().dustOff().xdrop_gap(150.0).penalty(-1).reward(1).maxE(1e-15)
-                .minPercent(this.minIdentity).maxPerQuery(5).minLen(this.minMatchLen);
+        this.blastParms = new BlastParms().task("blastn").dustOff().xdrop_gap(150.0).penalty(-1).reward(1).maxE(1e-15)
+                .minPercent(this.minIdentity).maxPerQuery(1).minLen(this.minMatchLen);
     }
 
     @Override
@@ -202,7 +202,8 @@ public class AniDistanceMethod extends DistanceMethod {
             sMap.compute(subject, (k, v) -> (v == null ? hit : this.merge(hit, v)));
         }
         // We need the sum of the identity fractions and the number of BBHs.
-        double sum = 0.0;
+        int sum = 0;
+        int base = 0;
         int mCount = 0;
         // Loop through the best query hits.
         for (var hit : qMap.values()) {
@@ -211,7 +212,8 @@ public class AniDistanceMethod extends DistanceMethod {
             BlastHit reciprocal = sMap.get(hit.getSubjectId());
             if (reciprocal.getQueryId().contentEquals(query)) {
                 // Yes.  Get the average identity fraction and count the hit.
-                sum += (hit.getIdentity() + reciprocal.getIdentity()) / 2.0;
+                sum += (hit.getNumIdentical() + reciprocal.getNumIdentical());
+                base += hit.getAlignLen() + reciprocal.getAlignLen();
                 mCount++;
             }
         }
@@ -221,7 +223,7 @@ public class AniDistanceMethod extends DistanceMethod {
         if (sum == 0.0)
             retVal = 1.0;
         else
-            retVal = 1.0 - sum / mCount;
+            retVal = 1.0 - ((double) sum) / base;
         return retVal;
     }
 
@@ -250,7 +252,7 @@ public class AniDistanceMethod extends DistanceMethod {
 
     @Override
     public String getName() {
-        String retVal = String.format("ANI_chunk%d.I%02d", this.chunkSize, (int) (this.minIdentity * 100));
+        String retVal = String.format("ANI_chunk%d.I%02d", this.chunkSize, (int) (this.minIdentity));
         if (this.minMatchLen > 0) {
             int pctMatch = (this.minMatchLen * 100 / this.chunkSize);
             retVal += String.format(",M>%02d", (int) pctMatch);

@@ -5,6 +5,7 @@ package org.theseed.genome.distance.methods;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.stream.IntStream;
@@ -65,6 +66,31 @@ public class TaxonDistanceMethod extends DistanceMethod {
 
     }
 
+    /**
+     * This is a comparator for sorting taxonomic rankings from highest to lowest.  Non-standard ranks are sorted
+     * to the end in alphabetical order.
+     */
+    public static class RankSort implements Comparator<String> {
+
+        @Override
+        public int compare(String o1, String o2) {
+            int retVal;
+            int l1 = rankLevel(o1);
+            int l2 = rankLevel(o2);
+            if (l1 < 0) {
+                if (l2 < 0)
+                    retVal = o1.compareTo(o2);
+                else
+                    retVal = 1;
+            } else if (l2 < 0)
+                retVal = -1;
+            else
+                retVal = l2 - l1;
+            return retVal;
+        }
+
+    }
+
     @Override
     protected Measurer setupGenome(Genome genome) {
         return this.new Analysis(genome);
@@ -80,6 +106,17 @@ public class TaxonDistanceMethod extends DistanceMethod {
         TaxonDistanceMethod.Analysis m2 = (TaxonDistanceMethod.Analysis) other;
         int retVal = getDiffLevel(m1, m2);
         return (retVal < 0 ? 0.0 : 1.0 / (2 << retVal));
+    }
+
+    /**
+     * @return the level index for a rank, or -1 if the rank is not one of the standard ones
+     *
+     * @param rank	taxonomic rank name
+     */
+    public static int rankLevel(String rank) {
+        OptionalInt idx = IntStream.range(0, LEVELS.length).filter(i -> LEVELS[i].contentEquals(rank)).findFirst();
+        return (idx.orElse(MISSING));
+
     }
 
     /**
