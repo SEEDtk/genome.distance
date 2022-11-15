@@ -146,11 +146,11 @@ public abstract class DistanceMethod implements AutoCloseable {
      */
     public Measurer getMeasurer(Genome genome) {
         long start = System.currentTimeMillis();
-        log.info("Processing method {} for genome {}.", this, genome);
+        log.debug("Processing method {} for genome {}.", this, genome);
         Measurer retVal = this.setupGenome(genome);
         if (log.isInfoEnabled()) {
             var duration = Duration.ofMillis(System.currentTimeMillis() - start);
-            log.info("{} to process genome of length {}.", duration, genome.getLength());
+            log.debug("{} to process genome of length {}.", duration, genome.getLength());
         }
         return retVal;
     }
