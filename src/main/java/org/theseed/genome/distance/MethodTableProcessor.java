@@ -25,6 +25,7 @@ import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.counters.CorrelationVariance;
 import org.theseed.genome.Genome;
 import org.theseed.genome.distance.methods.DistanceMethod;
 import org.theseed.genome.distance.methods.GenomePairList;
@@ -344,8 +345,9 @@ public class MethodTableProcessor extends BasePipeProcessor {
         var pearson = new PearsonsCorrelation();
         var kendall = new KendallsCorrelation();
         var spearman = new SpearmansCorrelation();
+        var variance = new CorrelationVariance();
         // Write the header line.
-        statWriter.println("method1\tmethod2\tPearson\tKendall\tSpearman");
+        statWriter.println("method1\tmethod2\tPearson\tKendall\tSpearman\tvariation\tIQR");
         // We generate each correlation line twice, then sort them.
         var sorter = new TreeMap<String[], String>(new StringTupleSort());
         // Loop through every pair of methods.
@@ -361,10 +363,12 @@ public class MethodTableProcessor extends BasePipeProcessor {
                 var p = pearson.correlation(dist1, dist2);
                 var k = kendall.correlation(dist1, dist2);
                 var s = spearman.correlation(dist1, dist2);
+                var tm = variance.variation(dist1, dist2);
+                var iqr = variance.getIQR();
                 // Format a line and store it in the sorter for both directions of the comparison.
-                String line = String.format("%s\t%s\t%8.4f\t%8.4f\t%8.4f", method1, method2, p, k, s);
+                String line = String.format("%s\t%s\t%8.4f\t%8.4f\t%8.4f\t%8.4f\t%8.4f", method1, method2, p, k, s, tm, iqr);
                 sorter.put(new String[] { method1,  method2 }, line);
-                line = String.format("%s\t%s\t%8.4f\t%8.4f\t%8.4f", method2, method1, p, k, s);
+                line = String.format("%s\t%s\t%8.4f\t%8.4f\t%8.4f\t%8.4f\t%8.4f", method2, method1, p, k, s, tm, iqr);
                 sorter.put(new String[] { method2,  method1 }, line);
             }
         }
