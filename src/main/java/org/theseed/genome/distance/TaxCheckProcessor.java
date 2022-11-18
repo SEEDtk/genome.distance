@@ -3,6 +3,7 @@
  */
 package org.theseed.genome.distance;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -12,10 +13,11 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.IntStream;
 
-import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.excel.utils.Distributor;
 import org.theseed.genome.distance.methods.TaxonDistanceMethod;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.utils.BasePipeProcessor;
@@ -36,6 +38,7 @@ import org.theseed.utils.ParseFailureException;
  * -o	output file for the report (if not STDOUT)
  *
  * --min	minimum number of data points required to display a result (default 900)
+ * --dist	name of an Excel output file for distribution data (default none)
  *
  * @author Bruce Parrello
  *
@@ -48,7 +51,9 @@ public class TaxCheckProcessor extends BasePipeProcessor {
     /** array of method names */
     private String[] methods;
     /** map of rank names to statistics array; each statistic array parallels "methods" */
-    private SortedMap<String, SummaryStatistics[]> rankArrays;
+    private SortedMap<String, DescriptiveStatistics[]> rankArrays;
+    /** distribution tracker */
+    private Distributor bucketMap;
     /** index of tax_group column in the input */
     private int taxColIdx;
     /** sorter for the rank names */
@@ -60,9 +65,14 @@ public class TaxCheckProcessor extends BasePipeProcessor {
     @Option(name = "--min", aliases = { "-m" }, metaVar = "1000", usage = "minimum number of data points required to display a result")
     private int minPoints;
 
+    /** distribution output file */
+    @Option(name = "--dist", metaVar = "buckets.xlsx", usage = "optional output Excel file for distribution data")
+    private File distFile;
+
     @Override
     protected void setPipeDefaults() {
         this.minPoints = 900;
+        this.distFile = null;
     }
 
     @Override
@@ -72,13 +82,15 @@ public class TaxCheckProcessor extends BasePipeProcessor {
         // Get the method list from the remaining columns.
         this.methods = Arrays.copyOfRange(inputStream.getLabels(), this.taxColIdx + 1, inputStream.size());
         // Create the output map.
-        this.rankArrays = new TreeMap<String,SummaryStatistics[]>(RANK_SORTER);
+        this.rankArrays = new TreeMap<String,DescriptiveStatistics[]>(RANK_SORTER);
     }
 
     @Override
     protected void validatePipeParms() throws IOException, ParseFailureException {
         if (this.minPoints < 1)
             throw new FileNotFoundException("Minimum number of data points must be positive.");
+        // Create the distributor.
+        this.bucketMap = new Distributor(0.0, 1.0, 50);
     }
 
     @Override
@@ -88,7 +100,7 @@ public class TaxCheckProcessor extends BasePipeProcessor {
         int method0 = this.taxColIdx + 1;
         for (var line : inputStream) {
             String rank = line.get(this.taxColIdx);
-            SummaryStatistics[] statMap = this.rankArrays.computeIfAbsent(rank, x -> this.createStats());
+            DescriptiveStatistics[] statMap = this.rankArrays.computeIfAbsent(rank, x -> this.createStats());
             // Now we have an array of summary statistics.  Fill them from the input line.
             for (int i = 0; i < this.methods.length; i++)
                 statMap[i].addValue(line.getDouble(method0 + i));
@@ -117,17 +129,25 @@ public class TaxCheckProcessor extends BasePipeProcessor {
                     double normalMax = mean + spread;
                     writer.format("%s\t%s\t%6.4f\t%6.4f\t%6.4f\t%6.4f\t%6.4f\t%6.4f\t%d%n",
                             method, rank, stats.getMin(), normalMin, mean, normalMax, stats.getMax(), sdev, stats.getN());
+                    // Add this series to the bucket map if we are doing a distribution.
+                    if (this.distFile != null) {
+                        String seriesName = method + ";" + rank;
+                        this.bucketMap.addValues(seriesName, stats.getValues());
+                    }
                 }
             }
         }
+        // Output the distribution if requested.
+        if (this.distFile != null)
+            this.bucketMap.save(this.distFile);
     }
 
     /**
      * @return an array of empty summary statistics objects, one per method
      */
-    private SummaryStatistics[] createStats() {
-        SummaryStatistics[] retVal = new SummaryStatistics[this.methods.length];
-        IntStream.range(0, this.methods.length).forEach(i -> retVal[i] = new SummaryStatistics());
+    private DescriptiveStatistics[] createStats() {
+        DescriptiveStatistics[] retVal = new DescriptiveStatistics[this.methods.length];
+        IntStream.range(0, this.methods.length).forEach(i -> retVal[i] = new DescriptiveStatistics());
         return retVal;
     }
 
