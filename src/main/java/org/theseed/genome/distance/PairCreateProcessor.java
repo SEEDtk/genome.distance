@@ -80,7 +80,7 @@ public class PairCreateProcessor extends BaseReportProcessor {
 
     /**
      * This object contains a neighbor genome ID, its similarity score, and its distance from the
-     * repgen list file. It is sorted from closest genome to furthest.
+     * representative. It is sorted from closest genome to furthest.
      */
     protected static class Neighbor implements Comparable<Neighbor> {
 
