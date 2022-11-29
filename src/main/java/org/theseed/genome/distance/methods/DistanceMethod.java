@@ -85,18 +85,20 @@ public abstract class DistanceMethod implements AutoCloseable {
                 return new SsuDistanceMethod();
             }
         },
+        /** crude distance based on first differing taxonomic group */
         TAXONOMY {
             @Override
             public DistanceMethod create() {
                 return new TaxonDistanceMethod();
             }
-        }, FILE {
+        },
+        /** distance loaded from a file of pre-computed values */
+        FILE {
             @Override
             public DistanceMethod create() {
                 return new FileDistanceMethod();
             }
-        }
-        ;
+        };
 
         /**
          * @return a method descriptor of this type
