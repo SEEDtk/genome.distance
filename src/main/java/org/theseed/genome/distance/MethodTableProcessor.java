@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -43,8 +44,8 @@ import org.theseed.utils.StringPair;
  * of incoming genomes.  The output displays the results of each method on each genome pair.
  *
  * The positional parameters are the name of a file containing the list of methods to test, the name of
- * the genome source directory (or file, in the case of a PATRIC source), and the name of the role definition
- * file.
+ * the role definition file, and the names of one or more genome source directories (or files, in the case of
+ * PATRIC sources).
  *
  * The input file is tab-delimited with headers and contains a list of genome ID pairs.  All the genomes must
  * be present in the genome source.
@@ -79,8 +80,8 @@ public class MethodTableProcessor extends BasePipeProcessor {
     // FIELDS
     /** logging facility */
     protected static Logger log = LoggerFactory.getLogger(MethodTableProcessor.class);
-    /** genome source */
-    private GenomeSource genomes;
+    /** genome sources */
+    private List<GenomeSource> genomes;
     /** list of methods to apply */
     private List<DistanceMethod> methods;
     /** list of genome pairs */
@@ -127,13 +128,13 @@ public class MethodTableProcessor extends BasePipeProcessor {
     @Argument(index = 0, metaVar = "methods.tbl", usage = "name of method list file", required = true)
     private File methodFile;
 
-    /** genome source directory */
-    @Argument(index = 1, metaVar = "inDir", usage = "name of genome source directory (or file)", required = true)
-    private File inDir;
-
     /** role definition file */
-    @Argument(index = 2, metaVar = "roles.in.subsystems", usage = "name of the role definition file", required = true)
+    @Argument(index = 1, metaVar = "roles.in.subsystems", usage = "name of the role definition file", required = true)
     private File roleFile;
+
+    /** genome source directories */
+    @Argument(index = 2, metaVar = "inDir1 inDir2 ...", usage = "name of genome source directories (or files)", required = true)
+    private List<File> inDirs;
 
     @Override
     protected void setPipeDefaults() {
@@ -218,10 +219,13 @@ public class MethodTableProcessor extends BasePipeProcessor {
             }
 
         }
-        // Connect to the genome source.
-        if (! this.inDir.exists())
-            throw new FileNotFoundException("Genome source " + this.inDir + " is not found.");
-        this.genomes = this.sourceType.create(this.inDir);
+        // Connect to the genome sources.
+        this.genomes = new ArrayList<GenomeSource>(this.inDirs.size());
+        for (File inDir : this.inDirs) {
+            if (! inDir.exists())
+                throw new FileNotFoundException("Genome source " + inDir + " is not found.");
+            this.genomes.add(this.sourceType.create(inDir));
+        }
         // Initialize the taxonomic distance method.
         this.taxMethod = new TaxonDistanceMethod();
     }
@@ -261,7 +265,7 @@ public class MethodTableProcessor extends BasePipeProcessor {
                     }
                     // Get the second genome.
                     String genomeId2 = pair.getId2();
-                    Genome genome = this.genomes.getGenome(genomeId2);
+                    Genome genome = this.getGenome(genomeId2);
                     // Check for a previous result.
                     boolean oldFound = false;
                     if (this.oldResultMap != null)
@@ -395,7 +399,7 @@ public class MethodTableProcessor extends BasePipeProcessor {
      */
     private List<Measurer> getMeasurers(String genomeId) {
         List<Measurer> retVal = new ArrayList<Measurer>(this.methods.size());
-        Genome genome = this.genomes.getGenome(genomeId);
+        Genome genome = this.getGenome(genomeId);
         this.genomeName1 = genome.getName();
         this.taxAnalysis1 = this.taxMethod.new Analysis(genome);
         for (var method : this.methods) {
@@ -406,16 +410,28 @@ public class MethodTableProcessor extends BasePipeProcessor {
     }
 
     /**
+     * @return the genome with the specified ID
+     *
+     * @param genomeId	ID of the genome to be harvested from the sources
+     */
+    private Genome getGenome(String genomeId) {
+        Genome retVal = null;
+        for (int i = 0; i < this.genomes.size() && retVal == null; i++)
+            retVal = this.genomes.get(i).getGenome(genomeId);
+        return retVal;
+    }
+
+    /**
      * Verify that all the genome IDs in the pair list are in the genome source.
      *
      * @throws IOException
      */
     private void checkGenomes() throws IOException {
         log.info("Validating genome pairs.");
-        var idSet = this.genomes.getIDs();
+        Set<String> idSet = this.genomes.stream().flatMap(x -> x.getIDs().stream()).collect(Collectors.toSet());
         var errorSet = this.pairs.getIdSet().stream().filter(x -> ! idSet.contains(x)).collect(Collectors.toList());
         if (! errorSet.isEmpty())
-            throw new IOException("The following genomes are missing from the source " + this.inDir + ": " +
+            throw new IOException("The following genomes are missing from the sources: " +
                     StringUtils.join(errorSet, ", "));
     }
 

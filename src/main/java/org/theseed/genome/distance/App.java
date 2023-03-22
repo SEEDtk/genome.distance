@@ -22,6 +22,7 @@ import org.theseed.utils.BaseProcessor;
  * augment		augment a list of pairings to add more taxonomic grouping examples
  * pairs		create a list of pairings from a repgen list file
  * pairMerge	merge pairings from two input files with identical formats
+ * methodCorr	compute the correlations between distances in a "methods" report and scores
  *
  */
 public class App
