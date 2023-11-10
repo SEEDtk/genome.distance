@@ -26,6 +26,7 @@ import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.counters.CorrelationVariance;
 import org.theseed.genome.Genome;
 import org.theseed.genome.distance.methods.DistanceMethod;
@@ -36,7 +37,6 @@ import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.reports.StringTupleSort;
 import org.theseed.utils.BasePipeProcessor;
-import org.theseed.utils.ParseFailureException;
 import org.theseed.utils.StringPair;
 
 /**

@@ -12,13 +12,13 @@ import java.util.Set;
 import org.kohsuke.args4j.Argument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.BaseProcessor;
 import org.theseed.counters.CountMap;
 import org.theseed.genome.Feature;
 import org.theseed.genome.Genome;
 import org.theseed.genome.GenomeDirectory;
 import org.theseed.proteins.Role;
 import org.theseed.proteins.RoleScanner;
-import org.theseed.utils.BaseProcessor;
 
 /**
  * Scan the genomes in a directory to create a role map.  The role map will be output to a user-specified

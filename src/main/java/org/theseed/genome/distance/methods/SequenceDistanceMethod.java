@@ -11,12 +11,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.genome.Feature;
 import org.theseed.genome.Genome;
 import org.theseed.proteins.Role;
 import org.theseed.proteins.RoleMap;
 import org.theseed.sequence.ProteinKmers;
-import org.theseed.utils.ParseFailureException;
 
 /**
  * This is the base class for distance methods that do a kmer comparison of identical roles in genomes.

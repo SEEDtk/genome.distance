@@ -15,6 +15,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.genome.Contig;
 import org.theseed.genome.Genome;
 import org.theseed.p3api.P3Genome;
@@ -25,7 +26,6 @@ import org.theseed.sequence.blast.BlastDB;
 import org.theseed.sequence.blast.BlastHit;
 import org.theseed.sequence.blast.BlastParms;
 import org.theseed.sequence.blast.DnaBlastDB;
-import org.theseed.utils.ParseFailureException;
 
 /**
  * This distance method uses orthologous average nucleotide identity to compute distance.

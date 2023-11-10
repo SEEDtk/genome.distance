@@ -13,10 +13,10 @@ import java.util.TreeMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.genome.Genome;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.p3api.P3Genome;
-import org.theseed.utils.ParseFailureException;
 
 /**
  * This method reads distances from an external method written into a file.  The file must be tab-delimited, with headers

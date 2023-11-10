@@ -9,11 +9,11 @@ import java.io.IOException;
 import java.util.Set;
 
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.BaseProcessor;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.sequence.hash.Bucket;
 import org.theseed.sequence.hash.LSHMemSeqHash;
 import org.theseed.sequence.hash.Sketch;
-import org.theseed.utils.BaseProcessor;
-import org.theseed.utils.ParseFailureException;
 import org.theseed.utils.SizeList;
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;

@@ -9,11 +9,11 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.genome.Genome;
 import org.theseed.p3api.P3Genome;
 import org.theseed.p3api.P3Genome.Details;
 import org.theseed.sequence.GenomeKmers;
-import org.theseed.utils.ParseFailureException;
 
 /**
  * This method computes the distance between genomes using whole-DNA kmer comparison.  The keywords in the

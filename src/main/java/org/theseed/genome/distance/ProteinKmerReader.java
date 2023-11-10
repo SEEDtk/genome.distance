@@ -7,9 +7,9 @@ import java.io.IOException;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.BaseProcessor;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.sequence.ProteinKmers;
-import org.theseed.utils.BaseProcessor;
 
 public abstract class ProteinKmerReader extends BaseProcessor {
 

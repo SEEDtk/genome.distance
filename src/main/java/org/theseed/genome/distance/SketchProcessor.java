@@ -11,11 +11,11 @@ import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.sequence.SequenceKmers;
 import org.theseed.sequence.hash.Bucket;
 import org.theseed.sequence.hash.Sketch;
-import org.theseed.utils.ParseFailureException;
 
 /**
  * This class will convert a file of proteins into sketches.  Each sketch is associated with a group ID, which could be

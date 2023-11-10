@@ -17,11 +17,11 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.excel.utils.Distributor;
 import org.theseed.genome.distance.methods.TaxonDistanceMethod;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.utils.BasePipeProcessor;
-import org.theseed.utils.ParseFailureException;
 
 /**
  * This command reads the output from the MethodTableProcessor and computes the mean and standard deviation for each

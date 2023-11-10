@@ -2,8 +2,8 @@ package org.theseed.genome.distance;
 
 import java.util.Arrays;
 
+import org.theseed.basic.BaseProcessor;
 import org.theseed.genome.signatures.SignatureProcessor;
-import org.theseed.utils.BaseProcessor;
 
 /**
  * These are various commands related to genome and protein distance.

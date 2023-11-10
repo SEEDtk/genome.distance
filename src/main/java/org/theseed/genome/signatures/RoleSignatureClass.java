@@ -10,9 +10,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import org.theseed.basic.ParseFailureException;
 import org.theseed.genome.Feature;
 import org.theseed.proteins.RoleMap;
-import org.theseed.utils.ParseFailureException;
 
 /**
  * This signature classifier determines the classes of a feature using the roles.

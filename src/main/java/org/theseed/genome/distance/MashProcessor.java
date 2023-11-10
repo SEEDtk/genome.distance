@@ -14,12 +14,12 @@ import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.theseed.basic.BaseProcessor;
 import org.theseed.genome.Genome;
 import org.theseed.genome.GenomeDirectory;
 import org.theseed.sequence.GenomeKmers;
 import org.theseed.sequence.hash.Bucket;
 import org.theseed.sequence.hash.LSHMemSeqHash;
-import org.theseed.utils.BaseProcessor;
 
 /**
  * This comand generates a sketch database for a directory of genomes.  The sketch database allows
