@@ -11,6 +11,22 @@ import org.theseed.basic.BaseProcessor;
 import org.theseed.io.TabbedLineReader;
 import org.theseed.sequence.ProteinKmers;
 
+/**
+ * This is the base class for commands that read protein group files.  The standard input should be
+ * a tab-delimited file containing group IDs and protein sequences in different columns.  Methods
+ * are provided to access the protein kmers and the group IDs.  The command itself handles closing
+ * the input stream.
+ *
+ * The command-line options are as follows:
+ *
+ * -h	display command usage
+ * -v	show more detailed progress messages
+ * -K	protein kmer size; the default is 8
+ * -i	input file containing protein families (default STDIN)
+ * -c	index (1-based) or name of the input column containing group IDs
+ * -p	index (1-based) or name of the input column containing protein sequences
+ *
+ */
 public abstract class ProteinKmerReader extends BaseProcessor {
 
     // FIELDS
