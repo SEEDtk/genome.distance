@@ -23,6 +23,7 @@ import org.theseed.genome.signatures.SignatureProcessor;
  * pairs		create a list of pairings from a repgen list file
  * pairMerge	merge pairings from two input files with identical formats
  * methodCorr	compute the correlations between distances in a "methods" report and scores
+ * kmerCount	count the number of times each kmer occurs in a set of proteins
  *
  */
 public class App
@@ -76,6 +77,9 @@ public class App
             break;
         case "pairMerge" :
             processor = new PairMergeProcessor();
+            break;
+        case "kmerCount" :
+            processor = new KmerCountProcessor();
             break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);

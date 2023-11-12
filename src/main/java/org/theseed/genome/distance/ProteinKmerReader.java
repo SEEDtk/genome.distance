@@ -14,8 +14,7 @@ import org.theseed.sequence.ProteinKmers;
 /**
  * This is the base class for commands that read protein group files.  The standard input should be
  * a tab-delimited file containing group IDs and protein sequences in different columns.  Methods
- * are provided to access the protein kmers and the group IDs.  The command itself handles closing
- * the input stream.
+ * are provided to access the protein kmers and the group IDs.
  *
  * The command-line options are as follows:
  *

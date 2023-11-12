@@ -38,8 +38,8 @@ import org.theseed.utils.SizeList;
  * -i	input file containing protein families (default STDIN)
  * -c	index (1-based) or name of the input column containing group IDs
  * -p	index (1-based) or name of the input column containing protein sequences
- * -M	maximum size of a group
- * -e	target mean error level
+ * -M	maximum size of a group (default 1000)
+ * -e	target mean error level (default 0.001)
  *
  * @author Bruce Parrello
  *
