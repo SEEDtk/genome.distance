@@ -53,9 +53,14 @@
         <version>1.0.0</version>
     </dependency>
     <dependency>
-    	<groupId>org.theseed</groupId>
-    	<artifactId>excel.utils</artifactId>
-    	<version>1.0.0</version>
+        <groupId>org.theseed</groupId>
+        <artifactId>excel.utils</artifactId>
+        <version>1.0.0</version>
+    </dependency>
+    <dependency>
+        <groupId>org.theseed</groupId>
+        <artifactId>distance</artifactId>
+        <version>1.0.0</version>
     </dependency>
   </dependencies>
 
