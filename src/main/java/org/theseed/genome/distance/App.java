@@ -72,6 +72,9 @@ public class App
         case "augment" :
             processor = new AugmentProcessor();
             break;
+        case "basicPairs" :
+            processor = new BasicPairsProcessor();
+            break;
         case "pairs" :
             processor = new PairCreateProcessor();
             break;

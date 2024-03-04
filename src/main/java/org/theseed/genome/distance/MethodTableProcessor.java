@@ -271,11 +271,8 @@ public class MethodTableProcessor extends BasePipeProcessor {
                     if (this.oldResultMap != null)
                         oldFound = this.checkPrevious(this.genomeId1, genomeId2, distances);
                     if (! oldFound) {
-                        for (int i = 0; i < nMethods; i++) {
-                            DistanceMethod method = this.methods.get(i);
-                            // Store the distance.
-                            distances[i] = method.getDistance(measurers.get(i), genome);
-                        }
+                        final List<Measurer> m = measurers;
+                        IntStream.range(0, nMethods).parallel().forEach(i -> distances[i] = this.methods.get(i).getDistance(m.get(i), genome));
                     }
                     // Save the distances.
                     this.distanceList.add(distances);
@@ -286,12 +283,12 @@ public class MethodTableProcessor extends BasePipeProcessor {
                     TextStringBuilder printLine = new TextStringBuilder(150);
                     printLine.append("%s\t%s\t%s\t%s\t%s", this.genomeId1, this.genomeName1, genomeId2, genome.getName(), taxGroup);
                     for (double distance : distances)
-                        printLine.append("\t%8.4f", distance);
+                        printLine.append("\t").append(distance);
                     // Write the line.
                     writer.println(printLine);
                     writer.flush();
                     pCount++;
-                    if (log.isInfoEnabled()) {
+                    if (log.isInfoEnabled() && pCount % 100 == 0) {
                         Duration remain = Duration.ofMillis((System.currentTimeMillis() - start) * (this.pairs.size() - pCount) / pCount);
                         log.info("{} pairs processed. {} remaining.", pCount, remain);
                     }
