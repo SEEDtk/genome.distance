@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.theseed.genome.Feature;
+import org.theseed.p3api.KeyBuffer;
 import org.theseed.p3api.P3Connection;
 import org.theseed.p3api.P3Connection.Table;
 
@@ -47,7 +48,7 @@ public class PgfamSignatureClass extends SignatureClass {
             // If all we have at the end is an empty string, we create a default name.
             String name = "";
             if (record != null)
-                name = P3Connection.getString(record, "family_product");
+                name = KeyBuffer.getString(record, "family_product");
             if (name.isEmpty())
                 name = "Missing function " + signature;
             retVal.put(signature, name);
