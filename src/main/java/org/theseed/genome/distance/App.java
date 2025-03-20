@@ -24,6 +24,7 @@ import org.theseed.genome.signatures.SignatureProcessor;
  * pairMerge	merge pairings from two input files with identical formats
  * methodCorr	compute the correlations between distances in a "methods" report and scores
  * kmerCount	count the number of times each kmer occurs in a set of proteins
+ * distCheck	determine how different distance measures relate to groupings
  *
  */
 public class App
@@ -84,6 +85,9 @@ public class App
         case "kmerCount" :
             processor = new KmerCountProcessor();
             break;
+        case "distCheck" :
+        	processor = new DistanceCheckProcessor();
+        	break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
         }

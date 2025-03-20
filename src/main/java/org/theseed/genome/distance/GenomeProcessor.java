@@ -4,24 +4,27 @@
 package org.theseed.genome.distance;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.theseed.basic.BaseProcessor;
+import org.theseed.basic.BaseReportProcessor;
+import org.theseed.basic.ParseFailureException;
 import org.theseed.genome.Genome;
-import org.theseed.genome.GenomeDirectory;
+import org.theseed.genome.iterator.GenomeSource;
 import org.theseed.sequence.GenomeKmers;
 
 /**
- * This class uses kmer distance to compare all the genomes in one or more genome directories using dna
+ * This class uses kmer distance to compare all the genomes in one or more genome sources using dna
  * contig kmers.  This is much more memory-intensive than the protein-based comparison. The positional
- * parameters are the name of the directory containing the base GTO files and the name of the genome directory
+ * parameters are the name of the directory containing the base genomes and the name of the genome directory
  * containing the comparison genomes.  Multiple comparison genome directories can be specified.
  *
  * The command-line options are as follows.
@@ -31,106 +34,119 @@ import org.theseed.sequence.GenomeKmers;
  * -K	kmer size to use
  * -m	maximum distance; if a comparison results in a distance greater than this value, it will not be output;
  * 		the default is 1.0, which outputs everything
+ * -t	type of genome source (default DIR)
  *
  * @author Bruce Parrello
  *
  */
-public class GenomeProcessor extends BaseProcessor {
+public class GenomeProcessor extends BaseReportProcessor {
 
     // FIELDS
 
     /** logging facility */
     protected static Logger log = LoggerFactory.getLogger(GenomeProcessor.class);
+    /** list of kmers for main genomes */
+    private List<GenomeKmers> mainKmers;
 
     // COMMAND-LINE OPTIONS
 
     /** kmer size */
-    @Option(name="-K", aliases = { "--kmerSize", "--kmer" }, metaVar = "12", usage = "DNA kmer size")
+    @Option(name="--kmerSize", aliases = { "-K", "--kmer" }, metaVar = "12", usage = "DNA kmer size")
     private int kmerSize;
 
     /** maximum distance to allow */
-    @Option(name = "-m", aliases = { "--max", "--maxDist", "--distance" }, metaVar = "0.75",
+    @Option(name = "--maxDist", aliases = { "-m", "--max", "--distance" }, metaVar = "0.75",
             usage = "maximum acceptable distance for a neighboring genome")
     private double maxDist;
 
-    /** name of the base genome directory */
-    @Argument(index=0, metaVar="gtoDir", required=true, usage="base genome GTO directory")
+    /** genome source type */
+    @Option(name = "--type", aliases = { "-t" }, usage = "genome source type")
+    private GenomeSource.Type sourceType;
+
+    /** name of the file or directory for the base genome source */
+    @Argument(index=0, metaVar="gtoDir", required=true, usage="base genome source")
     private File baseDir;
 
-    /** name of the input genome directory */
+    /** name of the files or directories for the other genome sources */
     @Argument(index=1, metaVar="gtoDir1 gtoDir2 ...", required=true, usage="directory of input GTOs")
     private List<File> genomeDirs;
 
     @Override
-    protected void setDefaults() {
+    protected void setReporterDefaults() {
         this.kmerSize = 21;
         this.maxDist = 0.9;
+        this.sourceType = GenomeSource.Type.DIR;
     }
 
-    @Override
-    protected boolean validateParms() throws IOException {
-        // Verify the base genome directory.
-        if (! this.baseDir.isDirectory())
-            throw new IOException("Directory " + this.baseDir + " not found or invalid.");
-        // Verify the genome directories.
-        for (File genomeDir : this.genomeDirs) {
-            if (! genomeDir.isDirectory()) {
-                throw new IOException("Directory " + genomeDir + " not found or invalid.");
-            }
-        }
-        // Set the kmer size.
-        GenomeKmers.setKmerSize(this.kmerSize);
-        // We made it this far, we can run the application.
-        return true;
-    }
+	@Override
+	protected void validateReporterParms() throws IOException, ParseFailureException {
+		// Verify the kmer size.
+		if (this.kmerSize < 4)
+			throw new ParseFailureException("Kmer size cannot be less than 4.");
+		GenomeKmers.setKmerSize(this.kmerSize);
+		log.info("Chosen kmer size is {}.", this.kmerSize);
+		// Verify the maximum distance.
+		if (this.maxDist <= 0.0 || this.maxDist > 1.0)
+			throw new ParseFailureException("Maximum distance must be > 0 and <= 1.");
+		// Validate the main genome source.
+		if (! this.baseDir.exists())
+			throw new FileNotFoundException("Main genome source \"" + this.baseDir + "\" is not found.");
+		// Validate the alternate genome sources.
+		for (File genomeDir : genomeDirs) {
+			if (! genomeDir.exists())
+				throw new FileNotFoundException("Genome source \"" + genomeDir + "\" is not found.");
+		}
+		// Now we begin the laborious process of loading the base genome kmers.
+		try {
+			GenomeSource baseGenomes = this.sourceType.create(this.baseDir);
+			final int nGenomes = baseGenomes.size();
+			int count = 0;
+			this.mainKmers = new ArrayList<GenomeKmers>(nGenomes);
+			log.info("Loading {} genomes from {}.", nGenomes, this.baseDir);
+			for (Genome genome : baseGenomes) {
+				count++;
+				log.info("Processing genome {} of {}: {}.", count, nGenomes, genome);
+				GenomeKmers kmers = new GenomeKmers(genome);
+				this.mainKmers.add(kmers);
+			}
+		} catch (Exception e) {
+			// Convert the missing-algorithm exceptions thrown by the MD5 stuff in GenomeKmers.
+			throw new ParseFailureException(e.toString());
+		}
+	}
 
-    @Override
-    public void runCommand() throws Exception {
-        // Write the output header.
-        System.out.println("base_id\tbase_name\tgenome_id\tgenome_name\tdistance");
-        // Create the kmer objects for the base genomes.
-        List<GenomeKmers> baseList = scanDirectoryForKmers(this.baseDir);
-        // Now loop through the comparison genome directories, computing all the distances.
-        for (File compareDir : this.genomeDirs) {
-            log.info("Processing directory {}.", compareDir);
-            GenomeDirectory compareGenomes = new GenomeDirectory(compareDir);
-            for (Genome compare : compareGenomes) {
-                log.info("Processing compare genome {}.", compare);
-                GenomeKmers compareKmers = new GenomeKmers(compare);
-                for (GenomeKmers baseKmers : baseList) {
-                    log.info("Comparing to base genome {} ({}).", baseKmers.getGenomeId(), baseKmers.getGenomeName());
-                    double dist = baseKmers.distance(compareKmers);
-                    if (dist <= this.maxDist)
-                        System.out.format("%s\t%s\t%s\t%s\t%12.8f%n", baseKmers.getGenomeId(),
-                                baseKmers.getGenomeName(), compareKmers.getGenomeId(),
-                                compareKmers.getGenomeName(), dist);
-                }
-            }
-        }
-        log.info("All done.");
-    }
-
-    /**
-     * Read all the genomes from a directory and create a list of kmer objects.
-     *
-     * @param dirName	directory of genomes to scan
-     *
-     * @return a list of kmer objects for the genomes
-     *
-     * @throws NoSuchAlgorithmException
-     * @throws IOException
-     */
-    private List<GenomeKmers> scanDirectoryForKmers(File dirName)
-            throws NoSuchAlgorithmException, IOException {
-        GenomeDirectory genomes = new GenomeDirectory(dirName);
-        List<GenomeKmers> baseGlist = new ArrayList<GenomeKmers>(genomes.size());
-        log.info("Processing genome directory {}.", dirName);
-        for (Genome genome : genomes) {
-            log.info("Scanning genome {}.", genome);
-            GenomeKmers kmers = new GenomeKmers(genome);
-            baseGlist.add(kmers);
-        }
-        return baseGlist;
-    }
+	@Override
+	protected void runReporter(PrintWriter writer) throws Exception {
+		// Write the output headers.
+		writer.println("genome1\tgenome2\tdistance");
+		int compares = 0;
+		// Save the number main genomes and create the output array for distances.
+		final int nMain = this.mainKmers.size();
+		double[] distances = new double[nMain];
+		// The basic strategy is to go through each secondary genome one at a time, and compare it to all
+		// the base genomes in parallel.
+		final int nDirs = this.genomeDirs.size();
+		for (int idx = 0; idx < nDirs; idx++) {
+			File dir = this.genomeDirs.get(idx);
+			log.info("Loading genome directory {}.", dir);
+			GenomeSource genomes = this.sourceType.create(dir);
+			final int nGenomes = genomes.size();
+			int gCount = 0;
+			for (Genome genome : genomes) {
+				gCount++;
+				log.info("Processing {} genome {} of {}: {}.", dir, gCount, nGenomes, genome);
+				// Compute all the distances for this genome.
+				GenomeKmers kmers = new GenomeKmers(genome);
+				IntStream.range(0, nMain).parallel().forEach(i -> distances[i] = kmers.distance(this.mainKmers.get(i)));
+				// Output the results.
+				String genome_id = genome.getId();
+				for (int i = 0; i < nMain; i++) {
+					writer.println(genome_id + "\t" + this.mainKmers.get(i).getGenomeId() + "\t" + distances[i]);
+					compares++;
+				}
+			}
+		}
+		log.info("{} comparisons output.", compares);
+	}
 
 }
