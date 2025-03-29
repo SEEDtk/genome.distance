@@ -25,6 +25,7 @@ import org.theseed.genome.signatures.SignatureProcessor;
  * methodCorr	compute the correlations between distances in a "methods" report and scores
  * kmerCount	count the number of times each kmer occurs in a set of proteins
  * distCheck	determine how different distance measures relate to groupings
+ * distReps		choose representative genomes based on genome distance
  *
  */
 public class App
@@ -87,6 +88,9 @@ public class App
             break;
         case "distCheck" :
         	processor = new DistanceCheckProcessor();
+        	break;
+        case "distReps" :
+        	processor = new DistanceRepsProcessor();
         	break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
