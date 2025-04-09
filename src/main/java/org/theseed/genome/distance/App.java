@@ -26,6 +26,7 @@ import org.theseed.genome.signatures.SignatureProcessor;
  * kmerCount	count the number of times each kmer occurs in a set of proteins
  * distCheck	determine how different distance measures relate to groupings
  * distReps		choose representative genomes based on genome distance
+ * fastaDist	compute the kmer distance between sequences in a FASTA file
  *
  */
 public class App
@@ -91,6 +92,9 @@ public class App
         	break;
         case "distReps" :
         	processor = new DistanceRepsProcessor();
+        	break;
+        case "fastaDist" :
+        	processor = new FastaDistanceProcessor();
         	break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
