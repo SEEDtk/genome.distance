@@ -27,6 +27,7 @@ import org.theseed.genome.signatures.SignatureProcessor;
  * distCheck	determine how different distance measures relate to groupings
  * distReps		choose representative genomes based on genome distance
  * fastaDist	compute the kmer distance between sequences in a FASTA file
+ * fastaReps	compute the number of distance-based representative sequences in a FASTA file
  *
  */
 public class App
@@ -95,6 +96,9 @@ public class App
         	break;
         case "fastaDist" :
         	processor = new FastaDistanceProcessor();
+        	break;
+        case "fastaReps" :
+        	processor = new FastaDistanceRepsProcessor();
         	break;
         default :
             throw new IllegalArgumentException("Invalid command " + command);
